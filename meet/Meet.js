@@ -114,9 +114,9 @@ module.exports = EventEmitter;
 },{}],2:[function(require,module,exports){
 const configuration = {
   iceServers: [
-    // {
-    //   urls: ["stun:stun.l.google.com:19302"],
-    // },
+    {
+      urls: ["stun:stun.l.google.com:19302"],
+    },
     {
       url: "turn:numb.viagenie.ca",
       credential: "muazkh",
@@ -177,8 +177,8 @@ class MeetPeer extends RTCPeerConnection {
   };
 
   configureStream = (localStream) => {
-    this.lStream = localStream;
     if (!localStream) return;
+    this.lStream = localStream;
     localStream
       .getTracks()
       .forEach((track) => this.addTrack(track, localStream));
