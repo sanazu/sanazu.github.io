@@ -5596,6 +5596,8 @@ class MeetPeer extends RTCPeerConnection {
     this.awaitOffer = null;
     this.handleCallEvents = null;
     this.configureDataChannel();
+    super.onicecandidate = this.onicecandidate;
+    super.onnegotiationneeded = this.onnegotiationneeded;
     console.log(ms.userName + " peer started");
   }
 
