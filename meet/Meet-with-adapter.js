@@ -5836,6 +5836,15 @@ function MeetJS(props) {
     };
   });
 
+  this.on("sendMessage", ({ remotePeer, data }) => {
+    transport.send({
+      peerName: this.userName,
+      remotePeer: remotePeer,
+      event: "message",
+      data: data,
+    });
+  });
+
   var createOrGetUser = (userName) => {
     var user;
     if (this.users[userName]) {
@@ -5936,6 +5945,11 @@ const MessageHandler = (msg, ms) => {
       ms.emit("bye");
       ms.emit("removeUser", content.peerName);
       break;
+    case "message":
+      ms.emit("receivedMessage", {
+        userName: content.peerName,
+        data: content.data,
+      });
     default:
       break;
   }
@@ -6062,9 +6076,6 @@ class SignalingChannel extends WebSocket {
 
   send = (message) => {
     if (this.readyState === this.OPEN) {
-      // console.log("<---- local ---->  ");
-      // console.log(message);
-      // console.log("<---- local ---->  ");
       super.send(JSON.stringify(message));
       return;
     }

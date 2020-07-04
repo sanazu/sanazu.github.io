@@ -58,7 +58,7 @@
     </div>
 
     <!--WebRTC related code-->
-    <button type="button" class="btn btn-primary" onclick="createOffer()">
+    <button type="button" class="btn btn-primary" onclick="sendMessage()">
       Create Offer
     </button>
     <input
@@ -67,10 +67,10 @@
       class="form-control"
       placeholder="message"
     />
-    <button type="button" class="btn btn-primary" onclick="sendMessage()">
+    <button type="button" class="btn btn-primary" onclick="createOffer()">
       SEND
     </button>
-    <script src="Meet.js"></script>
+    <script src="out/Meet-final.js"></script>
     <!--WebRTC related code-->
 
     <script>
@@ -84,6 +84,18 @@
       meet.on("invite", (peerName) => {
         meet.emit("accept", peerName);
       });
+      meet.on("localVideo", (stream) => {
+        var local = document.getElementById("localVideo");
+        if (
+          local.srcObject &&
+          local.srcObject.id !== stream.id &&
+          !local.srcObject.active
+        ) {
+          local.srcObject = stream.srcObject;
+        } else if (!local.srcObject) {
+          local.srcObject = stream.srcObject;
+        }
+      });
       meet.on("gotStream", (user) => {
         console.log("call connected with " + user.peerName);
         if (user && user.lStream && user.rStream) {
@@ -91,9 +103,20 @@
           document.getElementById("remoteVideo").srcObject = user.rStream;
         }
       });
+      meet.on("receivedMessage", ({ userName, data }) => {
+        console.log("received Message!", data);
+        alert(data.message);
+      });
       meet.emit("connect");
       function createOffer() {
-        MeetJS.emit("call", document.getElementById("messageInput").value);
+        // MeetJS.emit("call", document.getElementById("messageInput").value);
+        meet.emit("sendMessage", {
+          remotePeer: document.getElementById("messageInput").value,
+          data: {
+            message: "am calling you buddy!",
+            time: new Date(),
+          },
+        });
         document.getElementById("messageInput").value = "";
       }
     </script>
