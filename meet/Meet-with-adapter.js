@@ -5810,9 +5810,7 @@ function MeetJS(props) {
     let localStream = await navigator.mediaDevices.getUserMedia(
       props.mediaConstrains || defaultProps.mediaConstrains
     );
-    var video = document.createElement("video");
-    video.autoplay = true;
-    window.localStream = video.srcObject = localStream;
+    window.localStream = localStream;
     // this.emit("localVideo", video);
     this.emit("devices-connected");
     // return local;
