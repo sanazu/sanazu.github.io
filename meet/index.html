@@ -105,11 +105,11 @@
       });
       meet.on("receivedMessage", ({ userName, data }) => {
         console.log("received Message!", data);
-        alert(data.message);
+        //alert(data.message);
       });
       meet.emit("connect");
       function createOffer() {
-        // MeetJS.emit("call", document.getElementById("messageInput").value);
+        MeetJS.emit("call", document.getElementById("messageInput").value);
         meet.emit("sendMessage", {
           remotePeer: document.getElementById("messageInput").value,
           data: {
