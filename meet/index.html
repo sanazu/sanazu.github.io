@@ -70,7 +70,8 @@
     <button type="button" class="btn btn-primary" onclick="createOffer()">
       SEND
     </button>
-    <script src="Meet-with-adapter.js"></script>
+    <script src="Meet-final.js"></script>
+    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
     <!--WebRTC related code-->
 
     <script>
@@ -105,11 +106,11 @@
       });
       meet.on("receivedMessage", ({ userName, data }) => {
         console.log("received Message!", data);
-        alert(data.message);
+        //alert(data.message);
       });
       meet.emit("connect");
       function createOffer() {
-        // MeetJS.emit("call", document.getElementById("messageInput").value);
+        MeetJS.emit("call", document.getElementById("messageInput").value);
         meet.emit("sendMessage", {
           remotePeer: document.getElementById("messageInput").value,
           data: {
