@@ -153,6 +153,7 @@ class MeetPeer extends RTCPeerConnection {
     this.configureDataChannel();
     super.onicecandidate = this.onicecandidate;
     super.onnegotiationneeded = this.onnegotiationneeded;
+    super.ontrack = this.ontrack;
     console.log(ms.userName + " peer started");
   }
 
