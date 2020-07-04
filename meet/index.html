@@ -1,0 +1,101 @@
+<html>
+  <head>
+    <title>WebRTC demo</title>
+    <!--Bootstrap only for styling-->
+    <link
+      rel="stylesheet"
+      href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/css/bootstrap.min.css"
+    />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/js/bootstrap.min.js"></script>
+    <!--Bootstrap only for styling-->
+  </head>
+  <style>
+    .container {
+      background: rgb(148, 144, 144);
+      margin: 50px auto;
+      max-width: 80%;
+      text-align: center;
+      padding: 2%;
+    }
+
+    button {
+      margin: 1em;
+    }
+
+    input {
+      margin-top: 1em;
+    }
+    .arrange-horizontally > * {
+      display: inline-block;
+      text-align: center;
+    }
+    .arrange-vertically > * {
+      display: block;
+    }
+
+    .footer {
+      background: rgb(148, 144, 144);
+      text-align: center;
+      padding: 2%;
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+    }
+  </style>
+
+  <body>
+    <div>
+      <video
+        id="localVideo"
+        width="320"
+        height="240"
+        controls
+        autoplay
+        muted
+      ></video>
+      <video id="remoteVideo" width="320" height="240" autoplay></video>
+    </div>
+
+    <!--WebRTC related code-->
+    <button type="button" class="btn btn-primary" onclick="createOffer()">
+      Create Offer
+    </button>
+    <input
+      id="messageInput"
+      type="text"
+      class="form-control"
+      placeholder="message"
+    />
+    <button type="button" class="btn btn-primary" onclick="sendMessage()">
+      SEND
+    </button>
+    <script src="Meet.js"></script>
+    <!--WebRTC related code-->
+
+    <script>
+      var meet = new MeetJS({
+        contextPath: "socket",
+        url: "https://chat-demo-v1.herokuapp.com".replace("http", "ws"),
+      });
+      meet.on("ready", (e) => {
+        console.log("connected.....", e);
+      });
+      meet.on("invite", (peerName) => {
+        meet.emit("accept", peerName);
+      });
+      meet.on("gotStream", (user) => {
+        console.log("call connected with " + user.peerName);
+        if (user && user.lStream && user.rStream) {
+          document.getElementById("localVideo").srcObject = user.lStream;
+          document.getElementById("remoteVideo").srcObject = user.rStream;
+        }
+      });
+      meet.emit("connect");
+      function createOffer() {
+        MeetJS.emit("call", document.getElementById("messageInput").value);
+        document.getElementById("messageInput").value = "";
+      }
+    </script>
+  </body>
+</html>
