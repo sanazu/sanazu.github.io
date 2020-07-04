@@ -10,7 +10,7 @@ var EventEmitter = function (self) {
     self.events[event].push(listener);
   };
 
-  self.removeListener = function (event, listener) {
+  self.off = function (event, listener) {
     let idx;
 
     if (typeof self.events[event] === "object") {
@@ -40,7 +40,7 @@ var EventEmitter = function (self) {
 
   self.once = function (event, listener) {
     self.on(event, function g() {
-      self.removeListener(event, g);
+      self.off(event, g);
       listener.apply(self, arguments);
     });
   };
@@ -114,8 +114,13 @@ module.exports = EventEmitter;
 },{}],2:[function(require,module,exports){
 const configuration = {
   iceServers: [
+    // {
+    //   urls: ["stun:stun.l.google.com:19302"],
+    // },
     {
-      urls: ["stun:stun.l.google.com:19302"],
+      url: "turn:numb.viagenie.ca",
+      credential: "muazkh",
+      username: "webrtc@live.com",
     },
   ],
 };
@@ -128,7 +133,7 @@ const rtpConfig = {
   ],
 };
 
-var mediaConstraints = {
+const offerOptions = {
   offerToReceiveAudio: true,
   offerToReceiveVideo: true,
 };
@@ -145,7 +150,7 @@ class MeetPeer extends RTCPeerConnection {
     this.intimateOffer = null;
     this.awaitOffer = null;
     this.handleCallEvents = null;
-    // this.configureDataChannel();
+    this.configureDataChannel();
     console.log(ms.userName + " peer started");
   }
 
@@ -173,6 +178,7 @@ class MeetPeer extends RTCPeerConnection {
 
   configureStream = (localStream) => {
     this.lStream = localStream;
+    if (!localStream) return;
     localStream
       .getTracks()
       .forEach((track) => this.addTrack(track, localStream));
@@ -202,7 +208,7 @@ class MeetPeer extends RTCPeerConnection {
     // if(this.localOffer){
     //   this.prepareOffer(this.localOffer);
     // }else{
-    this.createOffer(mediaConstraints)
+    this.createOffer(offerOptions)
       .then(this.prepareOffer)
       .catch((e) => this.onError(e));
     // }
@@ -220,10 +226,11 @@ class MeetPeer extends RTCPeerConnection {
     });
   };
 
-  // onnegotiationneeded = () => {
-  //   this.sendOffer(this.remotePeer);
-  //   console.log("re negotiation is happening")
-  // }
+  onnegotiationneeded = () => {
+    if (!this.callState) return;
+    this.sendOffer(this.remotePeer);
+    console.log("re negotiation is happening");
+  };
 
   onicecandidate = (e) => {
     // if (this.callState) {
@@ -267,9 +274,6 @@ class MeetPeer extends RTCPeerConnection {
         event: "reject",
         data: "i can't take calls right now",
       });
-
-      // this.remotePeer = null;
-      // this.awaitOffer = null;
     } else {
       console.log("Peer Invalid");
     }
@@ -317,6 +321,7 @@ class MeetPeer extends RTCPeerConnection {
   };
 
   handleAnswer = (answer) => {
+    // this.configureStream(this.lStream);
     this.setRemoteDescription(new RTCSessionDescription(answer));
     this.callState = true;
     console.log("connection established successfully!!");
@@ -331,88 +336,237 @@ module.exports = MeetPeer;
 
 },{}],3:[function(require,module,exports){
 var SignalingChannel = require("./SignalingChannel");
-var EventEmitter = require("./EventEmitter");
 var MeetPeer = require("./MeetPeer");
+var MessageHandler = require("./MessageHandler");
+var EventEmitter = require("./EventEmitter");
 
-function MeetJS(configs) {
+var defaultProps = {
+  userName: "user" + Math.floor(Math.random() * 100) + 1,
+  transportUrl: {
+    origin: window.location.origin.replace("http", "ws"),
+    local: "ws://localhost:8080",
+    remote: "wss://meet-v1.herokuapp.com",
+  },
+  mediaConstrains: {
+    video: true,
+    audio: true,
+  },
+};
+
+function MeetJS(props) {
   EventEmitter(this);
-  this.configs = configs;
-  this.peers = [];
-  this.channel = new SignalingChannel(this.configs.url);
-  this.channel.userName =
-    this.configs.userName || prompt("Please enter your name");
-  window.MeetJS = this;
 
-  this.channel.onmessage = (params) => {
-    // console.log(params);
-    var data = JSON.parse(params.data);
-    if (data.event === "ping") {
-      return;
-    }
-    console.log(data);
-    if (!data.remotePeer === this.configs.userName) {
-      return;
-    }
-    switch (data.event) {
-      case "offer":
-        if (!this.peers[data.peerName]) {
-          var peer = new MeetPeer(this.channel);
-          peer.gotStream = this.gotStream;
-          peer.remotePeer = data.peerName;
-          peer.handleOffer(data.data);
-          peer.configureStream(this.configs.local.srcObject);
-          this.peers[data.peerName] = peer;
-        }
-        break;
-      case "answer":
-        if (this.peers[data.peerName]) {
-          var peer = this.peers[data.peerName];
-          peer.handleAnswer(data.data);
-          peer.configureStream(this.configs.local.srcObject);
-        }
-        break;
-      case "candidate":
-        if (this.peers[data.peerName]) {
-          var peer = this.peers[data.peerName];
-          peer.handleCandidate(data.data);
-        }
-        break;
-      default:
-        this.emit("message", data);
-        break;
-    }
+  this.users = [];
+
+  this.localVideo = async () => {
+    let localStream = await navigator.mediaDevices.getUserMedia(
+      props.mediaConstrains || defaultProps.mediaConstrains
+    );
+    var video = document.createElement("video");
+    video.autoplay = true;
+    window.localStream = video.srcObject = localStream;
+    // this.emit("localVideo", video);
+    this.emit("devices-connected");
+    // return local;
   };
 
-  this.on("call", (peerName) => {
-    if (!this.peers[peerName]) {
-      var peer = new MeetPeer(this.channel);
-      peer.gotStream = this.gotStream;
-      peer.sendOffer(peerName);
-      this.peers[peerName] = peer;
-    } else {
-      delete this.peers[peerName];
-      var peer = new MeetPeer(this.channel);
-      peer.gotStream = this.gotStream;
-      peer.sendOffer(peerName);
-    }
+  this.on("localVideoConnect", this.localVideo);
+
+  var transport;
+
+  this.userName = props.userName || defaultProps.userName;
+
+  this.on("connect", () => {
+    transport = window.transport = new SignalingChannel(
+      props.userName || defaultProps.userName,
+      (props.contextPath ? props.contextPath : "meet") +
+        (props.token ? "?jwt=" + props.token : ""),
+      props.url || defaultProps.transportUrl.local
+    );
+    transport.onready = (e) => {
+      this.emit("ready", e);
+    };
+    transport.onmessage = (msg) => {
+      MessageHandler(msg, this);
+    };
   });
 
-  this.gotStream = (peer) => {
-    this.configs.remote.srcObject = peer.rStream;
+  var createOrGetUser = (userName) => {
+    var user;
+    if (this.users[userName]) {
+      user = this.users[userName];
+      var state = user.connectionState;
+      // console.log("user already exists : " + userName + " with state " + state);
+      if (state === "failed") {
+        // console.log("user re initialize : " + userName);
+        delete this.users[userName];
+        user = initializeUser(userName);
+      }
+      return user;
+    } else {
+      user = initializeUser(userName);
+    }
+    return user;
   };
 
-  setTimeout(() => {
-    console.log("emit");
-    this.emit("ready", "connection is ready");
-  }, 3 * 1000);
+  this.getUser = createOrGetUser;
+
+  this.on("createOrGetUser", (userName) => createOrGetUser(userName));
+
+  this.on("call", (remotePeer) => {
+    console.log("calling " + remotePeer);
+    this.emit("localVideoConnect");
+    this.once("devices-connected", () => {
+      var user = createOrGetUser(remotePeer);
+      user.sendInvite(remotePeer);
+    });
+  });
+
+  this.on("accept", (remotePeer) => {
+    console.log("accepting invite " + remotePeer);
+    var peer = createOrGetUser(remotePeer);
+    peer.acceptOffer(remotePeer);
+  });
+
+  this.on("bye", (remotePeer) => {
+    console.log("Hanging up " + remotePeer);
+    var user = createOrGetUser(remotePeer);
+    user.endCall();
+  });
+
+  this.on("removeUser", (remotePeer) => {
+    var user = createOrGetUser(remotePeer);
+    user.close();
+    delete this.users[remotePeer];
+  });
+
+  var initializeUser = (userName) => {
+    var user = new MeetPeer(window.transport);
+    user.remotePeer = userName;
+    user.gotStream = (peer) => {
+      this.emit("gotStream", peer);
+    };
+    user.onconnectionstatechange = (e) => {};
+    user.configureStream(window.localStream);
+    this.users[userName] = user;
+    return user;
+  };
+
+  window.MeetJS = this;
 }
 
 module.exports = MeetJS;
 
-},{"./EventEmitter":1,"./MeetPeer":2,"./SignalingChannel":4}],4:[function(require,module,exports){
+},{"./EventEmitter":1,"./MeetPeer":2,"./MessageHandler":4,"./SignalingChannel":5}],4:[function(require,module,exports){
+const MessageHandler = (msg, ms) => {
+  const content = JSON.parse(msg.data);
+  if (content.event === "pong" && content.event === "ping") return;
+  if (ms.userName !== content.remotePeer && ms.userName === content.peerName)
+    return;
+  console.log("MessageHandler", content);
+
+  switch (content.event) {
+    // when somebody wants to call us
+    case "offer":
+      handleOffer(content, ms);
+      break;
+    case "answer":
+      handleAnswer(content, ms);
+      break;
+    // when a remote peer sends an ice candidate to us
+    case "candidate":
+      handleCandidate(content, ms);
+      break;
+    case "ping":
+      handlePing(content, ms);
+      break;
+    case "reject":
+    case "cancel":
+      handleCallEvents(content, ms);
+      break;
+    case "invite":
+      handleInvite(content, ms);
+      break;
+    case "bye":
+      ms.emit("bye");
+      ms.emit("removeUser", content.peerName);
+      break;
+    default:
+      break;
+  }
+};
+
+const handleCallEvents = (content, ms) => {
+  console.log("received call event");
+  if (content.event) {
+    if (content.event === "cancel") ms.emit("cancel", content.peerName);
+    if (content.event === "reject") ms.emit("reject", content.peerName);
+  }
+};
+
+const handleInvite = (content, ms) => {
+  console.log("received invite");
+  ms.emit("localVideoConnect");
+  ms.once("devices-connected", () => {
+    ms.emit("invite", content.peerName);
+  });
+};
+const handlePing = (content, ms) => {
+  console.log(
+    "received a ping from " +
+      content.peerName +
+      " with the message " +
+      content.data.message
+  );
+};
+
+const handleOffer = (content, ms) => {
+  console.log("received offer");
+  // ms.emit("localVideoConnect");
+  // ms.once("devices-connected", () => {
+  //   var user = ms.getUser(content.peerName);
+  //   user.handleOffer(content.data);
+  // });
+  var user = ms.getUser(content.peerName);
+  user.handleOffer(content.data);
+};
+
+const handleCandidate = (content, ms) => {
+  console.log("received iceCandidate from " + content.peerName);
+  var user = ms.getUser(content.peerName);
+  user.handleCandidate(content.data);
+};
+
+const handleAnswer = (content, ms) => {
+  console.log("received answer");
+  var user = ms.getUser(content.peerName);
+  user.handleAnswer(content.data);
+};
+
+module.exports = MessageHandler;
+
+},{}],5:[function(require,module,exports){
 class SignalingChannel extends WebSocket {
-  constructor(address) {
-    super(address);
+  constructor(peerName = null, contextPath = "", address = null) {
+    const getProtocol = () => {
+      if (!address) {
+        return window.location.protocol === "https:" ? "wss://" : "ws://";
+      } else {
+        return "";
+      }
+    };
+    const getContextPath = (path) => {
+      return path + "/" + contextPath;
+    };
+    const location = getContextPath(
+      getProtocol() + (address !== null ? address : window.location.host)
+    );
+    console.log("connecting... " + location);
+    super(location);
+    this.userName = peerName;
+    console.log("connected as " + this.userName);
+    this.getUser = null;
+    this.timerID = 0;
     super.onopen = this.onopen;
     this.interval = 29;
     this.id = Math.floor(Math.random() * 2) + 1;
@@ -421,9 +575,10 @@ class SignalingChannel extends WebSocket {
   addMp = (mp) => {
     this.mp = mp;
   };
+
   keepAlive = () => {
     var timeout = this.interval * 1000;
-    if (this.readyState === this.OPEN && this.timerId) {
+    if (this.readyState === this.OPEN) {
       console.log("Pinging server ... idle timeout: " + timeout / 1000 + "s");
       this.send({
         peerName: this.userName,
@@ -443,14 +598,28 @@ class SignalingChannel extends WebSocket {
   };
 
   onopen = () => {
-    console.log(
-      this.userName + " Connected to the signaling server at " + this.url
-    );
+    // console.log("Connected to the signaling server at " + this.url);
+    this.onready(this.url);
+    this.send({
+      peerName: this.userName,
+      peerId: this.id,
+      event: "ping",
+      data: {
+        message: "hello",
+      },
+    });
     this.keepAlive();
   };
 
+  // onmessage = (msg) => {
+  //   MessageHandler(msg, this);
+  // };
+
   send = (message) => {
     if (this.readyState === this.OPEN) {
+      // console.log("<---- local ---->  ");
+      // console.log(message);
+      // console.log("<---- local ---->  ");
       super.send(JSON.stringify(message));
       return;
     }
