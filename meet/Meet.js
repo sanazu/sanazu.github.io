@@ -208,13 +208,9 @@ class MeetPeer extends RTCPeerConnection {
 
   sendOffer = (remotePeer) => {
     this.remotePeer = remotePeer;
-    // if(this.localOffer){
-    //   this.prepareOffer(this.localOffer);
-    // }else{
     this.createOffer(offerOptions)
       .then(this.prepareOffer)
       .catch((e) => this.onError(e));
-    // }
   };
 
   prepareOffer = (offer) => {
@@ -433,13 +429,25 @@ function MeetJS(props) {
   });
 
   this.on("accept", (remotePeer) => {
-    console.log("accepting invite " + remotePeer);
+    console.log("accepting invite from " + remotePeer);
     var peer = createOrGetUser(remotePeer);
     peer.acceptOffer(remotePeer);
   });
 
+  this.on("cancel", (remotePeer) => {
+    console.log("cancelling the invite from " + remotePeer);
+    var peer = createOrGetUser(remotePeer);
+    peer.cancelOffer(remotePeer);
+  });
+
+  this.on("reject", (remotePeer) => {
+    console.log("rejecting the invite from " + remotePeer);
+    var peer = createOrGetUser(remotePeer);
+    peer.rejectOffer(remotePeer);
+  });
+
   this.on("bye", (remotePeer) => {
-    console.log("Hanging up " + remotePeer);
+    console.log("Hanging up call with " + remotePeer);
     var user = createOrGetUser(remotePeer);
     user.endCall();
   });

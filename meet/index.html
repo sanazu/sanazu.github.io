@@ -54,7 +54,7 @@
         autoplay
         muted
       ></video>
-      <video id="remoteVideo" width="320" height="240" autoplay></video>
+      <div id="remoteVideos"></div>
     </div>
 
     <!--WebRTC related code-->
@@ -71,7 +71,7 @@
     <button type="button" class="btn btn-primary" onclick="createOffer()">
       SEND
     </button>
-    <script src="Meet-with-adapter.js"></script>
+    <script src="Meet-adapter-final.js"></script>
     <!--WebRTC related code-->
 
     <script>
@@ -86,8 +86,11 @@
       });
       meet.on("invite", (peerName) => {
         meet.emit("accept", peerName);
+        // meet.emit("cancel", peerName);
+        // meet.emit("reject", peerName);
       });
-      meet.on("localVideo", (stream) => {
+      meet.on("localVideo", (stream) => {});
+      function setlocalVideo(stream) {
         var local = document.getElementById("localVideo");
         if (
           local.srcObject &&
@@ -96,14 +99,31 @@
         ) {
           local.srcObject = stream.srcObject;
         } else if (!local.srcObject) {
-          local.srcObject = stream.srcObject;
+          local.srcObject = stream;
         }
-      });
+      }
+      function setRemoteVideo(peerName, stream) {
+        var video;
+        if (!document.getElementById(peerName)) {
+          video = document.createElement("video");
+          video.autoplay = true;
+          video.width = "320";
+          video.height = "240";
+          video.id = peerName;
+          video.srcObject = stream;
+          document.getElementById("remoteVideos").appendChild(video);
+        } else {
+          video = document.getElementById(peerName);
+          video.srcObject = stream;
+        }
+      }
       meet.on("gotStream", (user) => {
         console.log("call connected with " + user.peerName);
         if (user && user.lStream && user.rStream) {
-          document.getElementById("localVideo").srcObject = user.lStream;
-          document.getElementById("remoteVideo").srcObject = user.rStream;
+          // document.getElementById("localVideo").srcObject = user.lStream;
+          setlocalVideo(user.lStream);
+          // document.getElementById("remoteVideo").srcObject = user.rStream;
+          setRemoteVideo(user.remotePeer, user.rStream);
         }
       });
       meet.on("receivedMessage", ({ userName, data }) => {
