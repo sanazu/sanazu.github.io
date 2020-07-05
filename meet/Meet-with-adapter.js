@@ -5862,6 +5862,28 @@ function MeetJS(props) {
 
   this.getUser = createOrGetUser;
 
+  this.on("conference", ({ remotePeer, users }) => {
+    transport.send({
+      peerName: this.userName,
+      remotePeer: remotePeer,
+      event: "conference",
+      data: {
+        users,
+      },
+    });
+  });
+
+  this.on("conference-connect", (data) => {
+    if (data.users) {
+      console.log("confere", data);
+      window.conference = data.users;
+      data.users.forEach((remotePeer) => {
+        var user = createOrGetUser(remotePeer);
+        user.sendOffer(remotePeer);
+      });
+    }
+  });
+
   this.on("createOrGetUser", (userName) => createOrGetUser(userName));
 
   this.on("call", (remotePeer) => {
@@ -5903,13 +5925,21 @@ function MeetJS(props) {
     delete this.users[remotePeer];
   });
 
+  var failed = (e) => {
+    var peer = e.currentTarget;
+    if (peer.connectionState === "disconnected") {
+      this.emit("disconnected", peer.remotePeer);
+    }
+    console.log(peer.remotePeer, peer.connectionState);
+  };
+
   var initializeUser = (userName) => {
     var user = new MeetPeer(window.transport);
     user.remotePeer = userName;
     user.gotStream = (peer) => {
       this.emit("gotStream", peer);
     };
-    user.onconnectionstatechange = (e) => {};
+    user.onconnectionstatechange = failed;
     user.configureStream(window.localStream);
     this.users[userName] = user;
     return user;
@@ -5961,6 +5991,9 @@ const MessageHandler = (msg, ms) => {
         userName: content.peerName,
         data: content.data,
       });
+    case "conference":
+      ms.emit("conference-connect", content.data);
+      break;
     default:
       break;
   }

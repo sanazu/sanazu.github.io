@@ -45,22 +45,9 @@
   </style>
 
   <body>
-    <div>
-      <video
-        id="localVideo"
-        width="320"
-        height="240"
-        controls
-        autoplay
-        muted
-      ></video>
-      <div id="remoteVideos"></div>
-    </div>
+    <div id="videos"></div>
 
     <!--WebRTC related code-->
-    <button type="button" class="btn btn-primary" onclick="sendMessage()">
-      Create Offer
-    </button>
     <span id="userName"></span>
     <input
       id="messageInput"
@@ -79,6 +66,7 @@
         contextPath: "socket",
         url: "https://chat-demo-v1.herokuapp.com".replace("http", "ws"),
       });
+      window.activeUsers = [];
       meet.on("ready", (e) => {
         console.log("connected.....", e);
         document.getElementById("userName").innerText =
@@ -89,17 +77,27 @@
         // meet.emit("cancel", peerName);
         // meet.emit("reject", peerName);
       });
-      meet.on("localVideo", (stream) => {});
-      function setlocalVideo(stream) {
-        var local = document.getElementById("localVideo");
-        if (
-          local.srcObject &&
-          local.srcObject.id !== stream.id &&
-          !local.srcObject.active
-        ) {
-          local.srcObject = stream.srcObject;
-        } else if (!local.srcObject) {
-          local.srcObject = stream;
+      function setlocalVideo(peerName, stream) {
+        var local = document.getElementById(peerName);
+        if (local) {
+          if (
+            local.srcObject &&
+            local.srcObject.id !== stream.id &&
+            !local.srcObject.active
+          ) {
+            local.srcObject = stream.srcObject;
+          } else if (!local.srcObject) {
+            local.srcObject = stream;
+          }
+        } else if (!local) {
+          var video = document.createElement("video");
+          video.autoplay = true;
+          video.muted = true;
+          video.width = "320";
+          video.height = "240";
+          video.id = peerName;
+          video.srcObject = stream;
+          document.getElementById("videos").appendChild(video);
         }
       }
       function setRemoteVideo(peerName, stream) {
@@ -111,7 +109,7 @@
           video.height = "240";
           video.id = peerName;
           video.srcObject = stream;
-          document.getElementById("remoteVideos").appendChild(video);
+          document.getElementById("videos").appendChild(video);
         } else {
           video = document.getElementById(peerName);
           video.srcObject = stream;
@@ -120,10 +118,17 @@
       meet.on("gotStream", (user) => {
         console.log("call connected with " + user.peerName);
         if (user && user.lStream && user.rStream) {
-          // document.getElementById("localVideo").srcObject = user.lStream;
-          setlocalVideo(user.lStream);
-          // document.getElementById("remoteVideo").srcObject = user.rStream;
+          setlocalVideo(user.peerName, user.lStream);
+          activeUsers[user.remotePeer] = user.remotePeer;
           setRemoteVideo(user.remotePeer, user.rStream);
+        }
+      });
+      meet.on("disconnected", (remotePeer) => {
+        if (activeUsers[remotePeer]) {
+          delete activeUsers[remotePeer];
+          document
+            .getElementById("videos")
+            .removeChild(document.getElementById(remotePeer));
         }
       });
       meet.on("receivedMessage", ({ userName, data }) => {
