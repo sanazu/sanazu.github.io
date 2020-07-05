@@ -478,9 +478,11 @@ module.exports = MeetJS;
 },{"./EventEmitter":1,"./MeetPeer":2,"./MessageHandler":4,"./SignalingChannel":5}],4:[function(require,module,exports){
 const MessageHandler = (msg, ms) => {
   const content = JSON.parse(msg.data);
-  if (content.event === "pong" && content.event === "ping") return;
-  if (ms.userName !== content.remotePeer && ms.userName === content.peerName)
+  if (content.event === "pong" || content.event === "ping") return;
+  if (ms.userName !== content.remotePeer) {
+    console.log("rejecting message", content);
     return;
+  }
   console.log("MessageHandler", content);
 
   switch (content.event) {
