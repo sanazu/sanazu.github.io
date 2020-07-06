@@ -5,6 +5,10 @@
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4/jquery.min.js"></script>
 <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/jquery-ui.min.js"></script>
 <style>
+body {
+margin:0,
+padding:0
+}
 .ui-resizable-helper {
     border: 1px dotted gray;
 }
@@ -13,7 +17,7 @@
     width: 400px;
     height: 400px;
     padding: 10px;
-    border: 2px solid gray;
+    border: 2px solid green;
     overflow: hidden;
     position: relative;
 }
@@ -37,6 +41,17 @@ if(temp){
 document.getElementById("frame").src = temp.value;
 temp.value="";
 }
+}
+window.onload = ()=>{
+var meet = new URLSearchParams(location.search).get("load");
+if(meet){
+if(meet=== "meet"){
+
+document.getElementById("frame").src = "meet/index.html"
+
+}
+}
+
 }
 </script>
 </head>
