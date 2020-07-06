@@ -44,9 +44,11 @@ temp.value="";
 
 }
 window.onload = ()=>{
-var meet = new URLSearchParams(location.search).get("load");
+var meet = new URLSearchParams(location.search).get("url");
 if(!meet){
 location.replace("https://sanazu.github.io/meet/");
+}else{
+document.getElementById("frame").src = meet;
 }
 
 }
@@ -60,7 +62,11 @@ location.replace("https://sanazu.github.io/meet/");
 </div>
 
 
-<div class="resizable"><iframe src="" id="frame"  title="Iframe Example"></iframe></div>
+<div class="resizable"><iframe src="" id="frame"  title="Iframe" allowfullscreen="allowfullscreen"
+        mozallowfullscreen="mozallowfullscreen" 
+        msallowfullscreen="msallowfullscreen" 
+        oallowfullscreen="oallowfullscreen" 
+        webkitallowfullscreen="webkitallowfullscreen"></iframe></div>
 
 
 
