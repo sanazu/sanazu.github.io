@@ -5816,11 +5816,13 @@ function MeetJS(props) {
 
   var transport;
 
-  this.userName = props.userName || defaultProps.userName;
-
-  this.on("connect", () => {
+  this.on("connect", (userName) => {
+    if (!userName) {
+      console.log("No userName provided, Fallback to random");
+    }
+    this.userName = userName || defaultProps.userName;
     transport = window.transport = new SignalingChannel(
-      props.userName || defaultProps.userName,
+      this.userName,
       (props.contextPath ? props.contextPath : "meet") +
         (props.token ? "?jwt=" + props.token : ""),
       props.url || defaultProps.transportUrl.local
@@ -5897,8 +5899,11 @@ function MeetJS(props) {
 
   this.on("accept", (remotePeer) => {
     console.log("accepting invite from " + remotePeer);
-    var peer = createOrGetUser(remotePeer);
-    peer.acceptOffer(remotePeer);
+    this.emit("localVideoConnect");
+    this.once("devices-connected", () => {
+      var peer = createOrGetUser(remotePeer);
+      peer.acceptOffer(remotePeer);
+    });
   });
 
   this.on("cancel", (remotePeer) => {
@@ -6009,10 +6014,11 @@ const handleCallEvents = (content, ms) => {
 
 const handleInvite = (content, ms) => {
   console.log("received invite");
-  ms.emit("localVideoConnect");
-  ms.once("devices-connected", () => {
-    ms.emit("invite", content.peerName);
-  });
+  // ms.emit("localVideoConnect");
+  // ms.once("devices-connected", () => {
+  //   ms.emit("invite", content.peerName);
+  // });
+  ms.emit("invite", content.peerName);
 };
 const handlePing = (content, ms) => {
   console.log(

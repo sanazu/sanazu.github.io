@@ -135,7 +135,9 @@
         console.log("received Message!", data);
         alert(data.message);
       });
-      meet.emit("connect");
+      // meet.emit("connect");
+      // userName
+      meet.emit("connect", prompt("enter the userName"));
       function createOffer() {
         MeetJS.emit("call", document.getElementById("messageInput").value);
         // meet.emit("sendMessage", {
