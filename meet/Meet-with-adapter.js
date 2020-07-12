@@ -5801,12 +5801,13 @@ function MeetJS(props) {
   EventEmitter(this);
 
   this.users = [];
+  this.activeUsers = [];
 
   this.localVideo = async () => {
     let localStream = await navigator.mediaDevices.getUserMedia(
       props.mediaConstrains || defaultProps.mediaConstrains
     );
-    window.localStream = localStream;
+    this.localStream = localStream;
     // this.emit("localVideo", video);
     this.emit("devices-connected");
     // return local;
@@ -5814,29 +5815,54 @@ function MeetJS(props) {
 
   this.on("localVideoConnect", this.localVideo);
 
-  var transport;
-
+  var updateActiveUsers = (peerName) => {
+    if (this.activeUsers[peerName]) {
+      var temp = this.activeUsers[peerName];
+      clearTimeout(temp.timeout);
+      temp.timeout = setTimeout(() => {
+        delete this.activeUsers[peerName];
+      }, 28 * 1000);
+    } else {
+      this.activeUsers[peerName] = {
+        userName: peerName,
+        lastPing: new Date(Date.now()),
+        timeout: setTimeout(() => {
+          delete this.activeUsers[peerName];
+        }, 28 * 1000),
+      };
+    }
+  };
   this.on("connect", (userName) => {
     if (!userName) {
       console.log("No userName provided, Fallback to random");
     }
     this.userName = userName || defaultProps.userName;
-    transport = window.transport = new SignalingChannel(
+    this.transport = new SignalingChannel(
       this.userName,
       (props.contextPath ? props.contextPath : "meet") +
         (props.token ? "?jwt=" + props.token : ""),
       props.url || defaultProps.transportUrl.local
     );
-    transport.onready = (e) => {
+    this.transport.onready = (e) => {
       this.emit("ready", e);
     };
-    transport.onmessage = (msg) => {
-      MessageHandler(msg, this);
+    this.transport.onmessage = (msg) => {
+      const content = JSON.parse(msg.data);
+      if (content.event === "pong") return;
+      if (content.event === "ping" && content.peerName !== this.userName) {
+        updateActiveUsers(content.peerName);
+        return;
+      }
+      if (this.userName !== content.remotePeer) {
+        console.log("rejecting message", content);
+        return;
+      }
+      MessageHandler(content, this);
     };
   });
 
   this.on("sendMessage", ({ remotePeer, data }) => {
-    transport.send({
+    this.transport.send({
       peerName: this.userName,
       remotePeer: remotePeer,
       event: "message",
@@ -5865,7 +5891,7 @@ function MeetJS(props) {
   this.getUser = createOrGetUser;
 
   this.on("conference", ({ remotePeer, users }) => {
-    transport.send({
+    this.transport.send({
       peerName: this.userName,
       remotePeer: remotePeer,
       event: "conference",
@@ -5939,13 +5965,13 @@ function MeetJS(props) {
   };
 
   var initializeUser = (userName) => {
-    var user = new MeetPeer(window.transport);
+    var user = new MeetPeer(this.transport);
     user.remotePeer = userName;
     user.gotStream = (peer) => {
       this.emit("gotStream", peer);
     };
     user.onconnectionstatechange = failed;
-    user.configureStream(window.localStream);
+    user.configureStream(this.localStream);
     this.users[userName] = user;
     return user;
   };
@@ -5956,13 +5982,7 @@ function MeetJS(props) {
 module.exports = MeetJS;
 
 },{"./EventEmitter":1,"./MeetPeer":2,"./MessageHandler":4,"./SignalingChannel":5}],4:[function(require,module,exports){
-const MessageHandler = (msg, ms) => {
-  const content = JSON.parse(msg.data);
-  if (content.event === "pong" || content.event === "ping") return;
-  if (ms.userName !== content.remotePeer) {
-    console.log("rejecting message", content);
-    return;
-  }
+const MessageHandler = (content, ms) => {
   console.log("MessageHandler", content);
 
   switch (content.event) {
@@ -6080,10 +6100,6 @@ class SignalingChannel extends WebSocket {
     this.interval = 29;
     this.id = Math.floor(Math.random() * 2) + 1;
   }
-
-  addMp = (mp) => {
-    this.mp = mp;
-  };
 
   keepAlive = () => {
     var timeout = this.interval * 1000;
