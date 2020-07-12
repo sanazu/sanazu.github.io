@@ -42,13 +42,12 @@
       bottom: 0;
       width: 100%;
     }
-	
-	.u {
-	 border: 5px outset red;
-  background-color: lightblue;    
-  text-align: center;;
-	
-	}
+
+    .u {
+      border: 5px outset red;
+      background-color: lightblue;
+      text-align: center;
+    }
   </style>
 
   <body>
@@ -65,44 +64,42 @@
     <button type="button" class="btn btn-primary" onclick="createOffer()">
       SEND
     </button>
-	
-	
-	
-	<div class="u" id="name">
-	
-  </div>
 
-	
-	
+    <div class="u" id="name"></div>
+
     <script src="Meet-adapter-final.js"></script>
     <!--WebRTC related code-->
 
     <script>
-	fetch = function(){
-	var users = JSON.parse(JSON.stringify(Object.entries(MeetJS.activeUsers)));
-	//console.log("getting users",users);
-	var name = document.getElementById("name");
-	if(name)name.remove();
-	var div =document.createElement('div');
-	var ul =document.createElement('ul');
-	users.forEach(([k,v]) =>{
-	 var li = document.createElement('li');
-	 li.innerText = k;
-	 li.onclick =()=>{
-	 MeetJS.emit("call",k);
-	 }
-	 ul.appendChild(li);
-	});
-	ua = div.appendChild(ul);
-	div.id = "name";
-	div.classList.add("u");
-	document.body.append(div);
-	setTimeout(()=>{
-	fetch()
-	},10*1000);
-	}
-	
-	
+      window.onbeforeunload = () => {
+        return "are you sure";
+      };
+      fetch = function () {
+        var users = JSON.parse(
+          JSON.stringify(Object.entries(MeetJS.activeUsers))
+        );
+        //console.log("getting users",users);
+        var name = document.getElementById("name");
+        if (name) name.remove();
+        var div = document.createElement("div");
+        var ul = document.createElement("ul");
+        users.forEach(([k, v]) => {
+          var li = document.createElement("li");
+          li.innerText = k;
+          li.onclick = () => {
+            MeetJS.emit("call", k);
+          };
+          ul.appendChild(li);
+        });
+        ua = div.appendChild(ul);
+        div.id = "name";
+        div.classList.add("u");
+        document.body.append(div);
+        setTimeout(() => {
+          fetch();
+        }, 10 * 1000);
+      };
+
       var meet = new MeetJS({
         contextPath: "socket",
         url: "https://chat-demo-v1.herokuapp.com".replace("http", "ws"),
@@ -112,7 +109,7 @@
         console.log("connected.....", e);
         document.getElementById("userName").innerText =
           "Connected as " + meet.userName;
-		  fetch();
+        fetch();
       });
       meet.on("invite", (peerName) => {
         meet.emit("accept", peerName);
@@ -180,7 +177,7 @@
       // meet.emit("connect");
       // userName
       meet.emit("connect", prompt("enter the userName"));
-	  
+
       function createOffer() {
         MeetJS.emit("call", document.getElementById("messageInput").value);
         // meet.emit("sendMessage", {
