@@ -5897,6 +5897,7 @@ const MeetJS = function (props) {
     var user = createOrGetUser(remotePeer);
     user.close();
     delete this.users[remotePeer];
+    this.emit(this.SOCKET_EVENTS.DISCONNECTED, remotePeer);
   });
 
   var failed = (e) => {
