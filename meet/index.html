@@ -110,8 +110,15 @@
       });
       meet.on("INVITE", (peerName) => {
         meet.emit("ACCEPT", peerName);
-        // meet.emit("cancel", peerName);
-        // meet.emit("reject", peerName);
+        // meet.emit("CANCEL", peerName);
+        // meet.emit("REJECT", peerName);
+      });
+      meet.on("REJECTED", (peerName) => {
+        console.log(peerName, "rejected the call");
+      });
+
+      meet.on("CANCELLED", (peerName) => {
+        console.log(peerName, "cancelled the call");
       });
       function setlocalVideo(peerName, stream) {
         var local = document.getElementById(peerName);
@@ -176,7 +183,7 @@
       meet.emit("CONNECT", prompt("enter the userName"));
       function createOffer() {
         MeetJS.emit("CALL", document.getElementById("messageInput").value);
-        // meet.emit("sendMessage", {
+        // meet.emit("SEND_MESSAGE", {
         //   remotePeer: document.getElementById("messageInput").value,
         //   data: {
         //     message: "am calling you buddy!",

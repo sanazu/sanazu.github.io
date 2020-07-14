@@ -5454,6 +5454,8 @@ const SOCKET_EVENTS = {
   PONG: "PONG",
   REJECT: "REJECT",
   CANCEL: "CANCEL",
+  CANCELLED: "CANCELLED",
+  REJECTED: "REJECTED",
   INVITE: "INVITE",
   BYE: "BYE",
   MESSAGE: "MESSAGE",
@@ -5669,16 +5671,7 @@ class MeetPeer extends RTCPeerConnection {
     // }
   };
 
-  acceptOffer = (peerName) => {
-    // if(this.remotePeer === peerName){
-    this.sendOffer(peerName);
-    // this.handleOffer(this.awaitOffer);
-    // this.remotePeer = null;
-    // this.awaitOffer = null;
-    // }else{
-    //   console.log("Peer Invalid");
-    // }
-  };
+  acceptOffer = (peerName) => this.sendOffer(peerName);
 
   sendInvite = (peerName) => {
     MeetJS.send({
@@ -5897,6 +5890,7 @@ const MeetJS = function (props) {
     console.log("Hanging up call with " + remotePeer);
     var user = createOrGetUser(remotePeer);
     user.endCall();
+    this.emit(this.LOCAL_EVENTS.REMOVE_USER, remotePeer);
   });
 
   this.on(this.LOCAL_EVENTS.REMOVE_USER, (remotePeer) => {
@@ -5961,18 +5955,17 @@ const MessageHandler = (content) => {
       break;
     case MeetJS.SOCKET_EVENTS.REJECT:
       console.log("received call event");
-      MeetJS.emit(MeetJS.SOCKET_EVENTS.REJECT, content.peerName);
+      MeetJS.emit(MeetJS.SOCKET_EVENTS.REJECTED, content.peerName);
       break;
     case MeetJS.SOCKET_EVENTS.CANCEL:
       console.log("received call event");
-      MeetJS.emit(MeetJS.SOCKET_EVENTS.CANCEL, content.peerName);
+      MeetJS.emit(MeetJS.SOCKET_EVENTS.CANCELLED, content.peerName);
       break;
     case MeetJS.SOCKET_EVENTS.INVITE:
       console.log("received invite");
       MeetJS.emit(MeetJS.SOCKET_EVENTS.INVITE, content.peerName);
       break;
     case MeetJS.SOCKET_EVENTS.BYE:
-      MeetJS.emit(MeetJS.SOCKET_EVENTS.BYE);
       MeetJS.emit(MeetJS.LOCAL_EVENTS.REMOVE_USER, content.peerName);
       break;
     case MeetJS.SOCKET_EVENTS.MESSAGE:
