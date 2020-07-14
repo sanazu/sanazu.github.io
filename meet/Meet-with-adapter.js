@@ -5444,8 +5444,51 @@ module.exports = {
 });
 
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.MeetJS = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
-var EventEmitter = function (self) {
+const SOCKET_EVENTS = {
+  CALL: "CALL",
+  ACCEPT: "ACCEPT",
+  OFFER: "OFFER",
+  ANSWER: "ANSWER",
+  CANDIDATE: "CANDIDATE",
+  PING: "PING",
+  PONG: "PONG",
+  REJECT: "REJECT",
+  CANCEL: "CANCEL",
+  INVITE: "INVITE",
+  BYE: "BYE",
+  MESSAGE: "MESSAGE",
+  CONFERENCE: "CONFERENCE",
+  READY: "READY",
+  CONNECTED: "CONNECTED",
+  DISCONNECTED: "DISCONNECTED",
+};
+
+const LOCAL_EVENTS = {
+  CONNECT_LOCAL_VIDEO: "CONNECT_LOCAL_VIDEO",
+  DEVICE_CONNECTED: "DEVICE_CONNECTED",
+  REMOVE_USER: "REMOVE_USER",
+  RECEIVED_MESSAGE: "RECEIVED_MESSAGE",
+  CONFERENCE: "CONFERENCE",
+  CONNECT_CONFERENCE: "CONNECT_CONFERENCE",
+  SEND_MESSAGE: "SEND_MESSAGE",
+  CONNECT: "CONNECT",
+  RECONNECT: "RECONNECT",
+};
+
+module.exports = {
+  SOCKET_EVENTS,
+  LOCAL_EVENTS,
+};
+
+},{}],2:[function(require,module,exports){
+const constants = require("./Constants");
+
+const EventEmitter = function (self) {
   self.events = {};
+
+  self.SOCKET_EVENTS = constants.SOCKET_EVENTS;
+
+  self.LOCAL_EVENTS = constants.LOCAL_EVENTS;
 
   self.on = function (event, listener) {
     if (typeof self.events[event] !== "object") {
@@ -5453,6 +5496,7 @@ var EventEmitter = function (self) {
     }
 
     self.events[event].push(listener);
+    return this;
   };
 
   self.off = function (event, listener) {
@@ -5489,83 +5533,26 @@ var EventEmitter = function (self) {
       listener.apply(self, arguments);
     });
   };
+  return this;
 };
-
-// function(self) {
-//     self._events = {};
-
-//   self.on = (event, listener) => {
-//     if (typeof listener === "function") {
-//       this._events[event] = [];
-//       this._events[event].push(listener);
-//     } else {
-//       throw new Error(
-//         " The listener argument must be of type Function. Received type undefined"
-//       );
-//     }
-//     return this.eventEmitter;
-//   };
-
-//   // Adds a one time listener to the event. This listener is invoked only the next time the event is fired, after which it is removed.
-//   self.once = (event, listener) => {
-//     this._events[event].push({ listener: listener });
-//     // Returns emitter, so calls can be chained.
-//     return this.eventEmitter;
-//   };
-
-//   // Execute each of the listeners in order with the supplied arguments. Returns true if the event had listeners, false otherwise.
-//   // emit
-
-//   self.emit = (event, ...args) => {
-//     if(!this._events[event]){
-//       return false;
-//     }
-//     for (let i = 0; i < this._events[event].length; i++) {
-//       if (typeof this._events[event][i] === "function") {
-//         this._events[event][i](args);
-//       } else if (this._events[event][i] && this._events[event][i].listener) {
-//         this._events[event][i].listener(...args);
-//         delete this._events[event][i];
-//       }
-//     }
-//     if (this._events[event].length) {
-//       return true;
-//     }
-//     return false;
-//   };
-
-//   //Removes a listener from the listener array for the specified event. Caution − It changes the array indices in the listener array behind the listener. removeListener will remove, at most, one instance of a listener from the listener array. If any single listener has been added multiple times to the listener array for the specified event, then removeListener must be called multiple times to remove each instance. Returns emitter, so calls can be chained
-
-//   self.off = (event, responseToEvent) => {
-//     const eventArray = this._events[event];
-//     let i = 0;
-//     let deleteCount = 0;
-//     if (typeof eventArray !== "undefined") {
-//       while (deleteCount < 1) {
-//         // console.log(eventArray[i] && typeof eventArray[i] === 'function');
-//         if (typeof eventArray[i] === "function") {
-//           eventArray.splice(i, 1);
-//           deleteCount++;
-//         }
-//         i++;
-//       }
-//     }
-//     return this.eventEmitter;
-//   };
-// }
 
 module.exports = EventEmitter;
 
-},{}],2:[function(require,module,exports){
+},{"./Constants":1}],3:[function(require,module,exports){
 const configuration = {
   iceServers: [
     {
       urls: ["stun:stun.l.google.com:19302"],
     },
     {
-      url: "turn:numb.viagenie.ca",
+      urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
       credential: "muazkh",
       username: "webrtc@live.com",
+    },
+    {
+      urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
+      username: "normanarguet@gmail.com",
+      credential: "1ceCre4m007",
     },
   ],
 };
@@ -5584,11 +5571,9 @@ const offerOptions = {
 };
 
 class MeetPeer extends RTCPeerConnection {
-  constructor(ms, id = null) {
+  constructor(remotePeer, id = null) {
     super(configuration, rtpConfig);
-    this.ms = ms;
-    this.peerName = ms.userName;
-    this.remotePeer = null;
+    this.remotePeer = remotePeer;
     this.rStream = null;
     this.lStream = null;
     this.gotStream = null;
@@ -5599,7 +5584,7 @@ class MeetPeer extends RTCPeerConnection {
     super.onicecandidate = this.onicecandidate;
     super.onnegotiationneeded = this.onnegotiationneeded;
     super.ontrack = this.ontrack;
-    console.log(ms.userName + " peer started");
+    console.log(remotePeer + " peer started");
   }
 
   configureDataChannel = () => {
@@ -5642,10 +5627,6 @@ class MeetPeer extends RTCPeerConnection {
     }
   };
 
-  setUserName = (name) => {
-    this.peerName = name;
-  };
-
   sendMessage = (msg) => {
     console.log("Messaging via data channel");
     this.dataChannel.send(JSON.stringify(msg));
@@ -5662,10 +5643,9 @@ class MeetPeer extends RTCPeerConnection {
     this.localOffer = offer;
     this.setLocalDescription(offer);
     console.log("sending offer");
-    this.ms.send({
-      peerName: this.peerName,
+    MeetJS.send({
       remotePeer: this.remotePeer,
-      event: "offer",
+      event: MeetJS.SOCKET_EVENTS.OFFER,
       data: offer,
     });
   };
@@ -5679,10 +5659,9 @@ class MeetPeer extends RTCPeerConnection {
   onicecandidate = (e) => {
     // if (this.callState) {
     if (e.candidate) {
-      this.ms.send({
-        peerName: this.peerName,
+      MeetJS.send({
         remotePeer: this.remotePeer,
-        event: "candidate",
+        event: MeetJS.SOCKET_EVENTS.CANDIDATE,
         data: e.candidate,
       });
       console.log("sending iceCandidate to " + this.remotePeer);
@@ -5702,20 +5681,18 @@ class MeetPeer extends RTCPeerConnection {
   };
 
   sendInvite = (peerName) => {
-    this.ms.send({
-      peerName: this.peerName,
+    MeetJS.send({
       remotePeer: peerName,
-      event: "invite",
+      event: MeetJS.SOCKET_EVENTS.INVITE,
     });
   };
 
   rejectOffer = (peerName) => {
     console.log(this.remotePeer, peerName);
     if (this.remotePeer === peerName) {
-      this.ms.send({
-        peerName: this.peerName,
+      MeetJS.send({
         remotePeer: this.remotePeer,
-        event: "reject",
+        event: MeetJS.SOCKET_EVENTS.REJECT,
         data: "i can't take calls right now",
       });
     } else {
@@ -5725,19 +5702,17 @@ class MeetPeer extends RTCPeerConnection {
 
   cancelOffer = (peerName) => {
     if (this.remotePeer === peerName) {
-      this.ms.send({
-        peerName: this.peerName,
+      MeetJS.send({
         remotePeer: this.remotePeer,
-        event: "cancel",
+        event: MeetJS.SOCKET_EVENTS.CANCEL,
       });
     }
   };
 
   endCall = () => {
-    this.ms.send({
-      peerName: this.peerName,
+    MeetJS.send({
       remotePeer: this.remotePeer,
-      event: "bye",
+      event: MeetJS.SOCKET_EVENTS.BYE,
       data: "I am gonna end the call!",
     });
   };
@@ -5747,10 +5722,9 @@ class MeetPeer extends RTCPeerConnection {
     this.createAnswer()
       .then((answer) => {
         this.setLocalDescription(answer);
-        this.ms.send({
-          peerName: this.peerName,
+        MeetJS.send({
           remotePeer: this.remotePeer,
-          event: "answer",
+          event: MeetJS.SOCKET_EVENTS.ANSWER,
           data: answer,
         });
         this.callState = true;
@@ -5778,94 +5752,71 @@ class MeetPeer extends RTCPeerConnection {
 
 module.exports = MeetPeer;
 
-},{}],3:[function(require,module,exports){
-var SignalingChannel = require("./SignalingChannel");
-var MeetPeer = require("./MeetPeer");
-var MessageHandler = require("./MessageHandler");
-var EventEmitter = require("./EventEmitter");
+},{}],4:[function(require,module,exports){
+const SignalingChannel = require("./SignalingChannel");
+const MeetPeer = require("./MeetPeer");
+const MessageHandler = require("./MessageHandler");
+const EventEmitter = require("./EventEmitter");
 
-var defaultProps = {
-  userName: "user" + Math.floor(Math.random() * 100) + 1,
-  transportUrl: {
-    origin: window.location.origin.replace("http", "ws"),
-    local: "ws://localhost:8080",
-    remote: "wss://meet-v1.herokuapp.com",
-  },
-  mediaConstrains: {
-    video: true,
-    audio: true,
-  },
-};
-
-function MeetJS(props) {
+const MeetJS = function (props) {
   EventEmitter(this);
 
   this.users = [];
   this.activeUsers = [];
+  this.isActiveStatus = false;
+
+  var reconnectAttempts = 3;
+
+  this.getRemainingAttempts = () => {
+    return reconnectAttempts;
+  };
 
   this.localVideo = async () => {
     let localStream = await navigator.mediaDevices.getUserMedia(
-      props.mediaConstrains || defaultProps.mediaConstrains
+      props.mediaConstrains || this.DEFAULT_PROPS.mediaConstrains
     );
     this.localStream = localStream;
     // this.emit("localVideo", video);
-    this.emit("devices-connected");
+    this.emit(this.LOCAL_EVENTS.DEVICE_CONNECTED);
     // return local;
   };
 
-  this.on("localVideoConnect", this.localVideo);
+  this.on(this.LOCAL_EVENTS.CONNECT_LOCAL_VIDEO, this.localVideo);
 
-  var updateActiveUsers = (peerName) => {
-    if (this.activeUsers[peerName]) {
-      var temp = this.activeUsers[peerName];
-      clearTimeout(temp.timeout);
-      temp.timeout = setTimeout(() => {
-        delete this.activeUsers[peerName];
-      }, 28 * 1000);
-    } else {
-      this.activeUsers[peerName] = {
-        userName: peerName,
-        lastPing: new Date(Date.now()),
-        timeout: setTimeout(() => {
-          delete this.activeUsers[peerName];
-        }, 28 * 1000),
-      };
-    }
-  };
-  this.on("connect", (userName) => {
+  var socketConnect = (userName) => {
     if (!userName) {
       console.log("No userName provided, Fallback to random");
     }
-    this.userName = userName || defaultProps.userName;
+    this.userName = userName || this.DEFAULT_PROPS.defaultUserName;
     this.transport = new SignalingChannel(
       this.userName,
       (props.contextPath ? props.contextPath : "meet") +
         (props.token ? "?jwt=" + props.token : ""),
-      props.url || defaultProps.transportUrl.local
+      props.url || this.DEFAULT_PROPS.transportUrl.local
     );
     this.transport.onready = (e) => {
-      this.emit("ready", e);
+      this.emit(this.SOCKET_EVENTS.READY, e);
     };
-    this.transport.onmessage = (msg) => {
-      const content = JSON.parse(msg.data);
-      if (content.event === "pong") return;
-      if (content.event === "ping" && content.peerName !== this.userName) {
-        updateActiveUsers(content.peerName);
-        return;
-      }
-      if (this.userName !== content.remotePeer) {
-        console.log("rejecting message", content);
-        return;
-      }
-      MessageHandler(content, this);
+    this.transport.onMessage = (content) => {
+      MessageHandler(content);
     };
+  };
+
+  this.on(this.LOCAL_EVENTS.RECONNECT, () => {
+    reconnectAttempts = reconnectAttempts - 1;
+    console.log("remaining attempts", reconnectAttempts);
+    socketConnect(this.userName);
   });
 
-  this.on("sendMessage", ({ remotePeer, data }) => {
+  this.on(this.LOCAL_EVENTS.CONNECT, socketConnect);
+
+  this.send = (msg) => this.transport.send(msg);
+
+  this.on(this.LOCAL_EVENTS.SEND_MESSAGE, ({ remotePeer, data }) => {
     this.transport.send({
       peerName: this.userName,
       remotePeer: remotePeer,
-      event: "message",
+      event: this.SOCKET_EVENTS.MESSAGE,
       data: data,
     });
   });
@@ -5875,9 +5826,7 @@ function MeetJS(props) {
     if (this.users[userName]) {
       user = this.users[userName];
       var state = user.connectionState;
-      // console.log("user already exists : " + userName + " with state " + state);
       if (state === "failed") {
-        // console.log("user re initialize : " + userName);
         delete this.users[userName];
         user = initializeUser(userName);
       }
@@ -5890,18 +5839,18 @@ function MeetJS(props) {
 
   this.getUser = createOrGetUser;
 
-  this.on("conference", ({ remotePeer, users }) => {
+  this.on(this.SOCKET_EVENTS.CONFERENCE, ({ remotePeer, users }) => {
     this.transport.send({
       peerName: this.userName,
       remotePeer: remotePeer,
-      event: "conference",
+      event: this.SOCKET_EVENTS.CONFERENCE,
       data: {
         users,
       },
     });
   });
 
-  this.on("conference-connect", (data) => {
+  this.on(this.LOCAL_EVENTS.CONNECT_CONFERENCE, (data) => {
     if (data.users) {
       console.log("confere", data);
       window.conference = data.users;
@@ -5914,43 +5863,43 @@ function MeetJS(props) {
 
   this.on("createOrGetUser", (userName) => createOrGetUser(userName));
 
-  this.on("call", (remotePeer) => {
+  this.on(this.SOCKET_EVENTS.CALL, (remotePeer) => {
     console.log("calling " + remotePeer);
-    this.emit("localVideoConnect");
-    this.once("devices-connected", () => {
+    this.emit(this.LOCAL_EVENTS.CONNECT_LOCAL_VIDEO);
+    this.once(this.LOCAL_EVENTS.DEVICE_CONNECTED, () => {
       var user = createOrGetUser(remotePeer);
       user.sendInvite(remotePeer);
     });
   });
 
-  this.on("accept", (remotePeer) => {
+  this.on(this.SOCKET_EVENTS.ACCEPT, (remotePeer) => {
     console.log("accepting invite from " + remotePeer);
-    this.emit("localVideoConnect");
-    this.once("devices-connected", () => {
+    this.emit(this.LOCAL_EVENTS.CONNECT_LOCAL_VIDEO);
+    this.once(this.LOCAL_EVENTS.DEVICE_CONNECTED, () => {
       var peer = createOrGetUser(remotePeer);
       peer.acceptOffer(remotePeer);
     });
   });
 
-  this.on("cancel", (remotePeer) => {
+  this.on(this.SOCKET_EVENTS.CANCEL, (remotePeer) => {
     console.log("cancelling the invite from " + remotePeer);
     var peer = createOrGetUser(remotePeer);
     peer.cancelOffer(remotePeer);
   });
 
-  this.on("reject", (remotePeer) => {
+  this.on(this.SOCKET_EVENTS.REJECT, (remotePeer) => {
     console.log("rejecting the invite from " + remotePeer);
     var peer = createOrGetUser(remotePeer);
     peer.rejectOffer(remotePeer);
   });
 
-  this.on("bye", (remotePeer) => {
+  this.on(this.SOCKET_EVENTS.BYE, (remotePeer) => {
     console.log("Hanging up call with " + remotePeer);
     var user = createOrGetUser(remotePeer);
     user.endCall();
   });
 
-  this.on("removeUser", (remotePeer) => {
+  this.on(this.LOCAL_EVENTS.REMOVE_USER, (remotePeer) => {
     var user = createOrGetUser(remotePeer);
     user.close();
     delete this.users[remotePeer];
@@ -5959,16 +5908,16 @@ function MeetJS(props) {
   var failed = (e) => {
     var peer = e.currentTarget;
     if (peer.connectionState === "disconnected") {
-      this.emit("disconnected", peer.remotePeer);
+      this.emit(this.SOCKET_EVENTS.DISCONNECTED, peer.remotePeer);
     }
     console.log(peer.remotePeer, peer.connectionState);
   };
 
   var initializeUser = (userName) => {
-    var user = new MeetPeer(this.transport);
-    user.remotePeer = userName;
+    var user = new MeetPeer(userName);
+    // user.remotePeer = userName;
     user.gotStream = (peer) => {
-      this.emit("gotStream", peer);
+      this.emit(this.SOCKET_EVENTS.CONNECTED, peer);
     };
     user.onconnectionstatechange = failed;
     user.configureStream(this.localStream);
@@ -5977,143 +5926,174 @@ function MeetJS(props) {
   };
 
   window.MeetJS = this;
-}
+};
+
+MeetJS.prototype.DEFAULT_PROPS = {
+  defaultUserName: "user" + Math.floor(Math.random() * 100) + 1,
+  transportUrl: {
+    origin: window.location.origin.replace("http", "ws"),
+    local: "ws://localhost:8080",
+    remote: "wss://meet-v1.herokuapp.com",
+  },
+  mediaConstrains: {
+    video: true,
+    audio: true,
+  },
+};
 
 module.exports = MeetJS;
 
-},{"./EventEmitter":1,"./MeetPeer":2,"./MessageHandler":4,"./SignalingChannel":5}],4:[function(require,module,exports){
-const MessageHandler = (content, ms) => {
+},{"./EventEmitter":2,"./MeetPeer":3,"./MessageHandler":5,"./SignalingChannel":6}],5:[function(require,module,exports){
+const MessageHandler = (content) => {
   console.log("MessageHandler", content);
 
   switch (content.event) {
     // when somebody wants to call us
-    case "offer":
-      handleOffer(content, ms);
+    case MeetJS.SOCKET_EVENTS.OFFER:
+      handleOffer(content);
       break;
-    case "answer":
-      handleAnswer(content, ms);
+    case MeetJS.SOCKET_EVENTS.ANSWER:
+      handleAnswer(content);
       break;
     // when a remote peer sends an ice candidate to us
-    case "candidate":
-      handleCandidate(content, ms);
+    case MeetJS.SOCKET_EVENTS.CANDIDATE:
+      handleCandidate(content);
       break;
-    case "ping":
-      handlePing(content, ms);
+    case MeetJS.SOCKET_EVENTS.REJECT:
+      console.log("received call event");
+      MeetJS.emit(MeetJS.SOCKET_EVENTS.REJECT, content.peerName);
       break;
-    case "reject":
-    case "cancel":
-      handleCallEvents(content, ms);
+    case MeetJS.SOCKET_EVENTS.CANCEL:
+      console.log("received call event");
+      MeetJS.emit(MeetJS.SOCKET_EVENTS.CANCEL, content.peerName);
       break;
-    case "invite":
-      handleInvite(content, ms);
+    case MeetJS.SOCKET_EVENTS.INVITE:
+      console.log("received invite");
+      MeetJS.emit(MeetJS.SOCKET_EVENTS.INVITE, content.peerName);
       break;
-    case "bye":
-      ms.emit("bye");
-      ms.emit("removeUser", content.peerName);
+    case MeetJS.SOCKET_EVENTS.BYE:
+      MeetJS.emit(MeetJS.SOCKET_EVENTS.BYE);
+      MeetJS.emit(MeetJS.LOCAL_EVENTS.REMOVE_USER, content.peerName);
       break;
-    case "message":
-      ms.emit("receivedMessage", {
+    case MeetJS.SOCKET_EVENTS.MESSAGE:
+      MeetJS.emit(MeetJS.LOCAL_EVENTS.RECEIVED_MESSAGE, {
         userName: content.peerName,
         data: content.data,
       });
-    case "conference":
-      ms.emit("conference-connect", content.data);
+    case MeetJS.SOCKET_EVENTS.CONFERENCE:
+      MeetJS.emit(MeetJS.LOCAL_EVENTS.CONNECT_CONFERENCE, content.data);
       break;
     default:
       break;
   }
 };
 
-const handleCallEvents = (content, ms) => {
-  console.log("received call event");
-  if (content.event) {
-    if (content.event === "cancel") ms.emit("cancel", content.peerName);
-    if (content.event === "reject") ms.emit("reject", content.peerName);
-  }
-};
-
-const handleInvite = (content, ms) => {
-  console.log("received invite");
-  // ms.emit("localVideoConnect");
-  // ms.once("devices-connected", () => {
-  //   ms.emit("invite", content.peerName);
-  // });
-  ms.emit("invite", content.peerName);
-};
-const handlePing = (content, ms) => {
-  console.log(
-    "received a ping from " +
-      content.peerName +
-      " with the message " +
-      content.data.message
-  );
-};
-
-const handleOffer = (content, ms) => {
+const handleOffer = (content) => {
   console.log("received offer");
-  // ms.emit("localVideoConnect");
-  // ms.once("devices-connected", () => {
-  //   var user = ms.getUser(content.peerName);
-  //   user.handleOffer(content.data);
-  // });
-  var user = ms.getUser(content.peerName);
+  var user = MeetJS.getUser(content.peerName);
   user.handleOffer(content.data);
 };
 
-const handleCandidate = (content, ms) => {
+const handleCandidate = (content) => {
   console.log("received iceCandidate from " + content.peerName);
-  var user = ms.getUser(content.peerName);
+  var user = MeetJS.getUser(content.peerName);
   user.handleCandidate(content.data);
 };
 
-const handleAnswer = (content, ms) => {
+const handleAnswer = (content) => {
   console.log("received answer");
-  var user = ms.getUser(content.peerName);
+  var user = MeetJS.getUser(content.peerName);
   user.handleAnswer(content.data);
 };
 
 module.exports = MessageHandler;
 
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
+const getAbsoluteUrl = (address, contextPath) => {
+  const getProtocol = () => {
+    if (!address) {
+      return window.location.protocol === "https:" ? "wss://" : "ws://";
+    } else {
+      return "";
+    }
+  };
+  const getContextPath = (path) => {
+    return path + "/" + contextPath;
+  };
+  const location = getContextPath(
+    getProtocol() + (address !== null ? address : window.location.host)
+  );
+
+  console.log(
+    "connecting... to " + location,
+    " with userName :" + MeetJS.userName
+  );
+
+  return location;
+};
+
 class SignalingChannel extends WebSocket {
   constructor(peerName = null, contextPath = "", address = null) {
-    const getProtocol = () => {
-      if (!address) {
-        return window.location.protocol === "https:" ? "wss://" : "ws://";
-      } else {
-        return "";
-      }
-    };
-    const getContextPath = (path) => {
-      return path + "/" + contextPath;
-    };
-    const location = getContextPath(
-      getProtocol() + (address !== null ? address : window.location.host)
-    );
-    console.log("connecting... " + location);
-    super(location);
-    this.userName = peerName;
-    console.log("connected as " + this.userName);
+    super(getAbsoluteUrl(address, contextPath));
     this.getUser = null;
-    this.timerID = 0;
+    super.onmessage = this.onmessage;
     super.onopen = this.onopen;
-    this.interval = 29;
+    super.onclose = this.onclose;
+    super.onerror = this.onerror;
+    this.PING_INTERVAL = 29; // seconds
+    this.SECOND = 1000;
     this.id = Math.floor(Math.random() * 2) + 1;
   }
 
   keepAlive = () => {
-    var timeout = this.interval * 1000;
+    var timeout = this.PING_INTERVAL * this.SECOND;
     if (this.readyState === this.OPEN) {
-      console.log("Pinging server ... idle timeout: " + timeout / 1000 + "s");
+      console.log(
+        "Pinging server ... idle timeout: " + timeout / this.SECOND + "s"
+      );
       this.send({
-        peerName: this.userName,
-        event: "ping",
+        event: MeetJS.SOCKET_EVENTS.PING,
         data: {
           message: "hello",
         },
       });
     }
     this.timerId = setTimeout(this.keepAlive, timeout);
+  };
+
+  updateActiveUsers = (peerName) => {
+    if (MeetJS.activeUsers[peerName]) {
+      console.log(peerName, " is Online!");
+      var temp = MeetJS.activeUsers[peerName];
+      temp.isOnline = true;
+      temp.lastPing = new Date(Date.now());
+      clearTimeout(temp.timeout);
+      temp.timeout = setTimeout(() => {
+        console.log(peerName, " is Offline!");
+        MeetJS.activeUsers[peerName].isOnline = false;
+        setTimeout(() => {
+          if (MeetJS.activeUsers[peerName].isOnline) return;
+          delete MeetJS.activeUsers[peerName];
+          console.log(peerName, " is not longer active!");
+        }, 10 * 1000);
+      }, 28 * 1000);
+    } else {
+      console.log(peerName, " is Online!");
+      MeetJS.activeUsers[peerName] = {
+        userName: peerName,
+        lastPing: new Date(Date.now()),
+        isOnline: true,
+        timeout: setTimeout(() => {
+          console.log(peerName, " is Offline!");
+          MeetJS.activeUsers[peerName].isOnline = false;
+          setTimeout(() => {
+            if (MeetJS.activeUsers[peerName].isOnline) return;
+            delete MeetJS.activeUsers[peerName];
+            console.log(peerName, " is not longer active!");
+          }, 10 * 1000);
+        }, 28 * 1000),
+      };
+    }
   };
 
   cancelKeepAlive = () => {
@@ -6125,22 +6105,31 @@ class SignalingChannel extends WebSocket {
   onopen = () => {
     // console.log("Connected to the signaling server at " + this.url);
     this.onready(this.url);
-    this.send({
-      peerName: this.userName,
-      peerId: this.id,
-      event: "ping",
-      data: {
-        message: "hello",
-      },
-    });
     this.keepAlive();
   };
 
-  // onmessage = (msg) => {
-  //   MessageHandler(msg, this);
-  // };
+  onmessage = (msg) => {
+    const content = JSON.parse(msg.data);
+    if (content.event === MeetJS.SOCKET_EVENTS.PONG) {
+      console.log("server pong");
+      return;
+    }
+
+    if (content.peerName !== MeetJS.userName) {
+      if (content.event === MeetJS.SOCKET_EVENTS.PING) {
+        this.updateActiveUsers(content.peerName);
+      } else if (content.remotePeer === MeetJS.userName) {
+        this.onMessage(content);
+        return;
+      }
+      // console.log("rejecting message", content);
+      return;
+    }
+  };
 
   send = (message) => {
+    message.peerName = MeetJS.userName;
+    message.peerId = this.id;
     if (this.readyState === this.OPEN) {
       super.send(JSON.stringify(message));
       return;
@@ -6149,16 +6138,44 @@ class SignalingChannel extends WebSocket {
     // try for every 1 sec
     setTimeout(() => {
       this.send(message);
-    }, 1000);
+    }, 1 * 1000);
   };
 
-  onclose = () => {
-    console.log("closing");
+  onerror = (err) => {
+    // console.error("Socket encountered error: ", err, "Closing socket");
+    this.close();
+  };
+
+  onclose = (e) => {
     this.cancelKeepAlive();
+    if (MeetJS.getRemainingAttempts() > 0) {
+      var reconnectTimeout =
+        MeetJS.getRemainingAttempts() === 3
+          ? 10
+          : MeetJS.getRemainingAttempts() === 2
+          ? 20
+          : 30;
+      console.log(
+        "Socket is closed. Reconnect will be attempted in " +
+          reconnectTimeout +
+          " second.",
+        e.reason
+      );
+      setTimeout(function () {
+        console.log("reconneting .....");
+        MeetJS.emit(MeetJS.LOCAL_EVENTS.RECONNECT);
+      }, reconnectTimeout * this.SECOND);
+    } else {
+      console.log(
+        "Socket is closed. Reconnection is Disabled/Exceded Maximum limit.",
+        e.reason
+      );
+      return;
+    }
   };
 }
 
 module.exports = SignalingChannel;
 
-},{}]},{},[3])(3)
+},{}]},{},[4])(4)
 });

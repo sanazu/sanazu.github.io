@@ -64,10 +64,7 @@
     <button type="button" class="btn btn-primary" onclick="createOffer()">
       SEND
     </button>
-
-    <div class="u" id="name"></div>
-
-    <script src="Meet-adapter-final.js"></script>
+    <script src="out/Meet-with-adapter.js"></script>
     <!--WebRTC related code-->
 
     <script>
@@ -87,7 +84,7 @@
           var li = document.createElement("li");
           li.innerText = k;
           li.onclick = () => {
-            MeetJS.emit("call", k);
+            MeetJS.emit("CALL", k);
           };
           ul.appendChild(li);
         });
@@ -105,14 +102,14 @@
         url: "https://chat-demo-v1.herokuapp.com".replace("http", "ws"),
       });
       window.activeUsers = [];
-      meet.on("ready", (e) => {
+      meet.on("READY", (e) => {
         console.log("connected.....", e);
         document.getElementById("userName").innerText =
           "Connected as " + meet.userName;
         fetch();
       });
-      meet.on("invite", (peerName) => {
-        meet.emit("accept", peerName);
+      meet.on("INVITE", (peerName) => {
+        meet.emit("ACCEPT", peerName);
         // meet.emit("cancel", peerName);
         // meet.emit("reject", peerName);
       });
@@ -154,7 +151,7 @@
           video.srcObject = stream;
         }
       }
-      meet.on("gotStream", (user) => {
+      meet.on("CONNECTED", (user) => {
         console.log("call connected with " + user.peerName);
         if (user && user.lStream && user.rStream) {
           setlocalVideo(user.peerName, user.lStream);
@@ -162,7 +159,7 @@
           setRemoteVideo(user.remotePeer, user.rStream);
         }
       });
-      meet.on("disconnected", (remotePeer) => {
+      meet.on("DISCONNECTED", (remotePeer) => {
         if (activeUsers[remotePeer]) {
           delete activeUsers[remotePeer];
           document
@@ -170,16 +167,15 @@
             .removeChild(document.getElementById(remotePeer));
         }
       });
-      meet.on("receivedMessage", ({ userName, data }) => {
+      meet.on("RECEIVED_MESSAGE", ({ userName, data }) => {
         console.log("received Message!", data);
         alert(data.message);
       });
       // meet.emit("connect");
       // userName
-      meet.emit("connect", prompt("enter the userName"));
-
+      meet.emit("CONNECT", prompt("enter the userName"));
       function createOffer() {
-        MeetJS.emit("call", document.getElementById("messageInput").value);
+        MeetJS.emit("CALL", document.getElementById("messageInput").value);
         // meet.emit("sendMessage", {
         //   remotePeer: document.getElementById("messageInput").value,
         //   data: {
