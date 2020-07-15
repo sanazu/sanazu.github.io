@@ -100,7 +100,7 @@
       var meet = new MeetJS({
         contextPath: "socket",
         url: "https://chat-demo-v1.herokuapp.com".replace("http", "ws"),
-        // autoRevokeMedia: true,
+        autoRevokeMedia: true,
       });
       window.activeUsers = [];
       meet.on("READY", (e) => {
