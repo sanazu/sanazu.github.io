@@ -30,6 +30,9 @@ const LOCAL_EVENTS = {
   SEND_MESSAGE: "SEND_MESSAGE",
   CONNECT: "CONNECT",
   RECONNECT: "RECONNECT",
+  MUTE_AUDIO: "MUTE_AUDIO",
+  MUTE_VIDEO: "MUTE_VIDEO",
+  STOP_MEDIA: "STOP_MEDIA",
 };
 
 module.exports = {
@@ -189,8 +192,7 @@ class MeetPeer extends RTCPeerConnection {
     this.dataChannel.send(JSON.stringify(msg));
   };
 
-  sendOffer = (remotePeer) => {
-    this.remotePeer = remotePeer;
+  sendOffer = () => {
     this.createOffer(offerOptions)
       .then(this.prepareOffer)
       .catch((e) => this.onError(e));
@@ -214,7 +216,6 @@ class MeetPeer extends RTCPeerConnection {
   };
 
   onicecandidate = (e) => {
-    // if (this.callState) {
     if (e.candidate) {
       MeetJS.send({
         remotePeer: this.remotePeer,
@@ -223,38 +224,30 @@ class MeetPeer extends RTCPeerConnection {
       });
       console.log("sending iceCandidate to " + this.remotePeer);
     }
-    // }
   };
 
-  acceptOffer = (peerName) => this.sendOffer(peerName);
+  acceptOffer = () => this.sendOffer();
 
-  sendInvite = (peerName) => {
+  sendInvite = () => {
     MeetJS.send({
-      remotePeer: peerName,
+      remotePeer: this.remotePeer,
       event: MeetJS.SOCKET_EVENTS.INVITE,
     });
   };
 
-  rejectOffer = (peerName) => {
-    console.log(this.remotePeer, peerName);
-    if (this.remotePeer === peerName) {
-      MeetJS.send({
-        remotePeer: this.remotePeer,
-        event: MeetJS.SOCKET_EVENTS.REJECT,
-        data: "i can't take calls right now",
-      });
-    } else {
-      console.log("Peer Invalid");
-    }
+  rejectOffer = () => {
+    MeetJS.send({
+      remotePeer: this.remotePeer,
+      event: MeetJS.SOCKET_EVENTS.REJECT,
+      data: "i can't take calls right now",
+    });
   };
 
-  cancelOffer = (peerName) => {
-    if (this.remotePeer === peerName) {
-      MeetJS.send({
-        remotePeer: this.remotePeer,
-        event: MeetJS.SOCKET_EVENTS.CANCEL,
-      });
-    }
+  cancelOffer = () => {
+    MeetJS.send({
+      remotePeer: this.remotePeer,
+      event: MeetJS.SOCKET_EVENTS.CANCEL,
+    });
   };
 
   endCall = () => {
@@ -303,15 +296,19 @@ module.exports = MeetPeer;
 },{}],4:[function(require,module,exports){
 const SignalingChannel = require("./SignalingChannel");
 const MeetPeer = require("./MeetPeer");
+const Stream = require("./Stream");
 const MessageHandler = require("./MessageHandler");
 const EventEmitter = require("./EventEmitter");
 
 const MeetJS = function (props) {
+  window.MeetJS = this;
   EventEmitter(this);
+  var stream = new Stream();
 
   this.users = [];
   this.activeUsers = [];
-  this.isActiveStatus = false;
+  var privateCall = props.autoRevokeMedia || false;
+  // this.isActiveStatus = false;
 
   var reconnectAttempts = 3;
 
@@ -319,23 +316,34 @@ const MeetJS = function (props) {
     return reconnectAttempts;
   };
 
-  this.localVideo = async () => {
-    let localStream = await navigator.mediaDevices.getUserMedia(
-      props.mediaConstrains || this.DEFAULT_PROPS.mediaConstrains
-    );
-    this.localStream = localStream;
-    // this.emit("localVideo", video);
-    this.emit(this.LOCAL_EVENTS.DEVICE_CONNECTED);
-    // return local;
+  var localVideo = () => {
+    stream
+      .connectMedia(props.mediaConstrains || this.DEFAULT_PROPS.mediaConstrains)
+      .then((sucess) => {
+        if (sucess) {
+          this.emit(this.LOCAL_EVENTS.DEVICE_CONNECTED);
+        }
+      })
+      .catch((err) => {
+        console.log(err);
+      });
   };
 
-  this.on(this.LOCAL_EVENTS.CONNECT_LOCAL_VIDEO, this.localVideo);
+  this.getLocalStream = () => {
+    if (stream.localStream) {
+      return stream.localStream;
+    } else {
+      throw new Error("Connect to camera first!");
+    }
+  };
+
+  this.on(this.LOCAL_EVENTS.CONNECT_LOCAL_VIDEO, localVideo);
 
   var socketConnect = (userName) => {
     if (!userName) {
       console.log("No userName provided, Fallback to random");
     }
-    this.userName = userName || this.DEFAULT_PROPS.defaultUserName;
+    this.userName = userName || this.DEFAULT_PROPS.defaultUserName();
     this.transport = new SignalingChannel(
       this.userName,
       (props.contextPath ? props.contextPath : "meet") +
@@ -351,6 +359,7 @@ const MeetJS = function (props) {
   };
 
   this.on(this.LOCAL_EVENTS.RECONNECT, () => {
+    if (reconnectAttempts <= 0) return;
     reconnectAttempts = reconnectAttempts - 1;
     console.log("remaining attempts", reconnectAttempts);
     socketConnect(this.userName);
@@ -362,7 +371,6 @@ const MeetJS = function (props) {
 
   this.on(this.LOCAL_EVENTS.SEND_MESSAGE, ({ remotePeer, data }) => {
     this.transport.send({
-      peerName: this.userName,
       remotePeer: remotePeer,
       event: this.SOCKET_EVENTS.MESSAGE,
       data: data,
@@ -387,9 +395,20 @@ const MeetJS = function (props) {
 
   this.getUser = createOrGetUser;
 
+  this.on(this.LOCAL_EVENTS.MUTE_AUDIO, () =>
+    stream.toogleMute({ audio: true })
+  );
+
+  this.on(this.LOCAL_EVENTS.MUTE_VIDEO, () =>
+    stream.toogleMute({ video: true })
+  );
+
+  this.on(this.LOCAL_EVENTS.STOP_MEDIA, () =>
+    stream.stopMedia({ audio: true, video: true })
+  );
+
   this.on(this.SOCKET_EVENTS.CONFERENCE, ({ remotePeer, users }) => {
     this.transport.send({
-      peerName: this.userName,
       remotePeer: remotePeer,
       event: this.SOCKET_EVENTS.CONFERENCE,
       data: {
@@ -403,8 +422,7 @@ const MeetJS = function (props) {
       console.log("confere", data);
       window.conference = data.users;
       data.users.forEach((remotePeer) => {
-        var user = createOrGetUser(remotePeer);
-        user.sendOffer(remotePeer);
+        peerEvent("sendOffer", remotePeer);
       });
     }
   });
@@ -415,8 +433,7 @@ const MeetJS = function (props) {
     console.log("calling " + remotePeer);
     this.emit(this.LOCAL_EVENTS.CONNECT_LOCAL_VIDEO);
     this.once(this.LOCAL_EVENTS.DEVICE_CONNECTED, () => {
-      var user = createOrGetUser(remotePeer);
-      user.sendInvite(remotePeer);
+      peerEvent("sendInvite", remotePeer);
     });
   });
 
@@ -424,62 +441,75 @@ const MeetJS = function (props) {
     console.log("accepting invite from " + remotePeer);
     this.emit(this.LOCAL_EVENTS.CONNECT_LOCAL_VIDEO);
     this.once(this.LOCAL_EVENTS.DEVICE_CONNECTED, () => {
-      var peer = createOrGetUser(remotePeer);
-      peer.acceptOffer(remotePeer);
+      peerEvent("acceptOffer", remotePeer);
     });
   });
 
   this.on(this.SOCKET_EVENTS.CANCEL, (remotePeer) => {
     console.log("cancelling the invite from " + remotePeer);
-    var peer = createOrGetUser(remotePeer);
-    peer.cancelOffer(remotePeer);
+    peerEvent("cancelOffer", remotePeer);
   });
 
   this.on(this.SOCKET_EVENTS.REJECT, (remotePeer) => {
     console.log("rejecting the invite from " + remotePeer);
-    var peer = createOrGetUser(remotePeer);
-    peer.rejectOffer(remotePeer);
+    peerEvent("rejectOffer", remotePeer);
   });
 
   this.on(this.SOCKET_EVENTS.BYE, (remotePeer) => {
     console.log("Hanging up call with " + remotePeer);
-    var user = createOrGetUser(remotePeer);
-    user.endCall();
+    peerEvent("endCall", remotePeer);
     this.emit(this.LOCAL_EVENTS.REMOVE_USER, remotePeer);
   });
 
   this.on(this.LOCAL_EVENTS.REMOVE_USER, (remotePeer) => {
-    var user = createOrGetUser(remotePeer);
-    user.close();
+    peerEvent("close", remotePeer);
     delete this.users[remotePeer];
     this.emit(this.SOCKET_EVENTS.DISCONNECTED, remotePeer);
   });
 
+  var peerEvent = (eventName, remotePeer) => {
+    var user = createOrGetUser(remotePeer);
+    user[eventName]();
+  };
   var failed = (e) => {
     var peer = e.currentTarget;
-    if (peer.connectionState === "disconnected") {
+    if (peer.connectionState === "failed") {
       this.emit(this.SOCKET_EVENTS.DISCONNECTED, peer.remotePeer);
     }
     console.log(peer.remotePeer, peer.connectionState);
   };
 
+  // this function below is suitable for 1-1 & not recommended for 1-n || n-n
+  this.on(this.SOCKET_EVENTS.CONNECTED, () => {
+    this.on(this.SOCKET_EVENTS.DISCONNECTED, () => {
+      if (!privateCall) {
+        console.log(
+          "autoRevokeMedia is disabled",
+          "revoke userMedia by emiting STOP_MEDIA"
+        );
+        return;
+      }
+      console.log("autoRevokeMedia is enabled");
+      this.emit(this.LOCAL_EVENTS.STOP_MEDIA);
+    });
+  });
+
   var initializeUser = (userName) => {
     var user = new MeetPeer(userName);
-    // user.remotePeer = userName;
     user.gotStream = (peer) => {
       this.emit(this.SOCKET_EVENTS.CONNECTED, peer);
     };
     user.onconnectionstatechange = failed;
-    user.configureStream(this.localStream);
+    user.configureStream(stream.localStream);
     this.users[userName] = user;
     return user;
   };
-
-  window.MeetJS = this;
 };
 
 MeetJS.prototype.DEFAULT_PROPS = {
-  defaultUserName: "user" + Math.floor(Math.random() * 100) + 1,
+  defaultUserName: function () {
+    return "user" + Math.floor(Math.random() * 100) + 1;
+  },
   transportUrl: {
     origin: window.location.origin.replace("http", "ws"),
     local: "ws://localhost:8080",
@@ -493,7 +523,7 @@ MeetJS.prototype.DEFAULT_PROPS = {
 
 module.exports = MeetJS;
 
-},{"./EventEmitter":2,"./MeetPeer":3,"./MessageHandler":5,"./SignalingChannel":6}],5:[function(require,module,exports){
+},{"./EventEmitter":2,"./MeetPeer":3,"./MessageHandler":5,"./SignalingChannel":6,"./Stream":7}],5:[function(require,module,exports){
 const MessageHandler = (content) => {
   console.log("MessageHandler", content);
 
@@ -725,6 +755,58 @@ class SignalingChannel extends WebSocket {
 }
 
 module.exports = SignalingChannel;
+
+},{}],7:[function(require,module,exports){
+// this module will have Stream events logic in it
+
+const Stream = function () {
+  this.connectMedia = (constrains) => {
+    return new Promise((resolve, reject) => {
+      navigator.mediaDevices
+        .getUserMedia(constrains)
+        .then((stream) => {
+          this.localStream = stream;
+          resolve(true);
+        })
+        .catch((err) => {
+          reject("can't able to connect to Media " + err);
+        });
+    });
+  };
+  this.toogleMute = ({ audio, video }) => {
+    if (!this.localStream) {
+      console.log("Connect to MediaDevices first!");
+      return;
+    }
+    this.localStream.getTracks().forEach((track) => {
+      if (track.kind === "video" && video) {
+        track.enabled = !track.enabled;
+      }
+      if (track.kind === "audio" && audio) {
+        track.enabled = !track.enabled;
+      }
+    });
+  };
+
+  this.stopMedia = ({ audio, video }) => {
+    if (!this.localStream) {
+      console.log("Connect to MediaDevices first!");
+      return;
+    }
+    this.localStream.getTracks().forEach((track) => {
+      if (track.kind === "video" && video) {
+        track.stop();
+      }
+      if (track.kind === "audio" && audio) {
+        track.stop();
+      }
+    });
+  };
+};
+
+Stream.prototype.isMeetJS = true;
+
+module.exports = Stream;
 
 },{}]},{},[4])(4)
 });
