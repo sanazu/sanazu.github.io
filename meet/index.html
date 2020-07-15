@@ -170,19 +170,9 @@
       meet.on("DISCONNECTED", (remotePeer) => {
         if (activeUsers[remotePeer]) {
           delete activeUsers[remotePeer];
-		  
-			var videos= document.getElementById("videos");
-          
-			if(videos.children.length>2){
-				for (var i = 0; i <= videos.children.length; i++) {
-					console.log(i, videos.children.length)
-					videos[i].remove()
-				}
-			return;
-			}else{
-				videos.removeChild(document.getElementById(remotePeer));
-			}
-			
+          document
+            .getElementById("videos")
+            .removeChild(document.getElementById(remotePeer));
         }
       });
       meet.on("RECEIVED_MESSAGE", ({ userName, data }) => {
