@@ -64,6 +64,8 @@
     <button type="button" class="btn btn-primary" onclick="createOffer()">
       SEND
     </button>
+	
+	
     <script src="Meet-adapter-final.js"></script>
     <!--WebRTC related code-->
 
@@ -102,6 +104,14 @@
         url: "https://chat-demo-v1.herokuapp.com".replace("http", "ws"),
         autoRevokeMedia: true,
       });
+	  
+	  
+	  
+	  
+	  
+	  
+	  
+	  
       window.activeUsers = [];
       meet.on("READY", (e) => {
         console.log("connected.....", e);
