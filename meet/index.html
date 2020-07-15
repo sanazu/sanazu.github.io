@@ -173,9 +173,9 @@
 		  
 			var videos= document.getElementById("videos");
           
-			if(videos.children.length>1){
-				for (var i = 0; i <= videos.length; i++) {
-					console.log(i, videos.length)
+			if(videos.children.length>2){
+				for (var i = 0; i <= videos.children.length; i++) {
+					console.log(i, videos.children.length)
 					videos[i].remove()
 				}
 			return;
