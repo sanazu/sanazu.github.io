@@ -5466,7 +5466,7 @@ const SOCKET_EVENTS = {
 };
 
 const LOCAL_EVENTS = {
-  CONNECT_LOCAL_VIDEO: "CONNECT_LOCAL_VIDEO",
+  CONNECT_MEDIA: "CONNECT_MEDIA",
   DEVICE_CONNECTED: "DEVICE_CONNECTED",
   REMOVE_USER: "REMOVE_USER",
   RECEIVED_MESSAGE: "RECEIVED_MESSAGE",
@@ -5782,7 +5782,7 @@ const MeetJS = function (props) {
     }
   };
 
-  this.on(this.LOCAL_EVENTS.CONNECT_LOCAL_VIDEO, localVideo);
+  this.on(this.LOCAL_EVENTS.CONNECT_MEDIA, localVideo);
 
   var socketConnect = (userName) => {
     if (!userName) {
@@ -5876,7 +5876,7 @@ const MeetJS = function (props) {
 
   this.on(this.SOCKET_EVENTS.CALL, (remotePeer) => {
     console.log("calling " + remotePeer);
-    this.emit(this.LOCAL_EVENTS.CONNECT_LOCAL_VIDEO);
+    this.emit(this.LOCAL_EVENTS.CONNECT_MEDIA);
     this.once(this.LOCAL_EVENTS.DEVICE_CONNECTED, () => {
       peerEvent("sendInvite", remotePeer);
     });
@@ -5884,7 +5884,7 @@ const MeetJS = function (props) {
 
   this.on(this.SOCKET_EVENTS.ACCEPT, (remotePeer) => {
     console.log("accepting invite from " + remotePeer);
-    this.emit(this.LOCAL_EVENTS.CONNECT_LOCAL_VIDEO);
+    this.emit(this.LOCAL_EVENTS.CONNECT_MEDIA);
     this.once(this.LOCAL_EVENTS.DEVICE_CONNECTED, () => {
       peerEvent("acceptOffer", remotePeer);
     });
@@ -6133,7 +6133,7 @@ class SignalingChannel extends WebSocket {
   };
 
   onmessage = (msg) => {
-    const content = JSON.parse(msg.data);
+    const content = JSON.parse(atob(msg.data));
     if (content.event === MeetJS.SOCKET_EVENTS.PONG) {
       console.log("server pong");
       return;
@@ -6155,7 +6155,7 @@ class SignalingChannel extends WebSocket {
     message.peerName = MeetJS.userName;
     message.peerId = this.id;
     if (this.readyState === this.OPEN) {
-      super.send(JSON.stringify(message));
+      super.send(btoa(JSON.stringify(message)));
       return;
     }
 
