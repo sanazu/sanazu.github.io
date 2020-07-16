@@ -688,7 +688,7 @@ class SignalingChannel extends WebSocket {
   };
 
   onmessage = (msg) => {
-    const content = JSON.parse(atob(msg.data));
+    const content = JSON.parse(msg.data);
     if (content.event === MeetJS.SOCKET_EVENTS.PONG) {
       console.log("server pong");
       return;
@@ -710,7 +710,7 @@ class SignalingChannel extends WebSocket {
     message.peerName = MeetJS.userName;
     message.peerId = this.id;
     if (this.readyState === this.OPEN) {
-      super.send(btoa(JSON.stringify(message)));
+      super.send(JSON.stringify(message));
       return;
     }
 
