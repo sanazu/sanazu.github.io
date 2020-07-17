@@ -26,10 +26,12 @@
     input {
       margin-top: 1em;
     }
+
     .arrange-horizontally > * {
       display: inline-block;
       text-align: center;
     }
+
     .arrange-vertically > * {
       display: block;
     }
@@ -100,7 +102,8 @@
       var meet = new MeetJS({
         contextPath: "socket",
         url: "https://chat-demo-v1.herokuapp.com".replace("http", "ws"),
-        autoRevokeMedia: true,
+        debug: true,
+        // autoRevokeMedia: true,
       });
       window.activeUsers = [];
       meet.on("READY", (e) => {
@@ -111,6 +114,10 @@
       });
       meet.on("INVITE", (peerName) => {
         meet.emit("ACCEPT", peerName);
+        meet.emit("CONFERENCE", {
+          remotePeer: peerName,
+          users: meet.getActiveCallUsers().filter((p) => p !== peerName),
+        });
         // meet.emit("CANCEL", peerName);
         // meet.emit("REJECT", peerName);
       });

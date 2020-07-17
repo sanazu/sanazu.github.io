@@ -5458,6 +5458,7 @@ const SOCKET_EVENTS = {
   REJECTED: "REJECTED",
   INVITE: "INVITE",
   BYE: "BYE",
+  BABYE: "BABYE",
   MESSAGE: "MESSAGE",
   CONFERENCE: "CONFERENCE",
   READY: "READY",
@@ -5742,6 +5743,14 @@ class MeetPeer extends RTCPeerConnection {
     });
   };
 
+  endCallBye = () => {
+    MeetJS.send({
+      remotePeer: this.remotePeer,
+      event: MeetJS.SOCKET_EVENTS.BABYE,
+      data: "I am gonna end the call!",
+    });
+  };
+
   handleOffer = (offer) => {
     this.setRemoteDescription(new RTCSessionDescription(offer));
     this.createAnswer()
@@ -5784,6 +5793,7 @@ const Stream = require("./Stream");
 const MessageHandler = require("./MessageHandler");
 const EventEmitter = require("./EventEmitter");
 const Logger = require("./Logger");
+const Utils = require("./Utils");
 
 const MeetJS = function (props) {
   window.MeetJS = this;
@@ -5800,6 +5810,8 @@ const MeetJS = function (props) {
   // this.isActiveStatus = false;
 
   var reconnectAttempts = 3;
+
+  this.getActiveCallUsers = () => Utils.getKeysFromObject(this.users);
 
   this.getRemainingAttempts = () => {
     return reconnectAttempts;
@@ -5947,7 +5959,6 @@ const MeetJS = function (props) {
   this.on(this.SOCKET_EVENTS.BYE, (remotePeer) => {
     console.log("Hanging up call with " + remotePeer);
     peerEvent("endCall", remotePeer);
-    // this.emit(this.LOCAL_EVENTS.REMOVE_USER, remotePeer);
   });
 
   this.on(this.LOCAL_EVENTS.REMOVE_USER, (remotePeer) => {
@@ -6012,7 +6023,7 @@ MeetJS.prototype.DEFAULT_PROPS = {
 
 module.exports = MeetJS;
 
-},{"./EventEmitter":2,"./Logger":3,"./MeetPeer":4,"./MessageHandler":6,"./SignalingChannel":7,"./Stream":8}],6:[function(require,module,exports){
+},{"./EventEmitter":2,"./Logger":3,"./MeetPeer":4,"./MessageHandler":6,"./SignalingChannel":7,"./Stream":8,"./Utils":9}],6:[function(require,module,exports){
 const MessageHandler = (content) => {
   console.log("MessageHandler", content);
 
@@ -6041,7 +6052,11 @@ const MessageHandler = (content) => {
       MeetJS.emit(MeetJS.SOCKET_EVENTS.INVITE, content.peerName);
       break;
     case MeetJS.SOCKET_EVENTS.BYE:
-      MeetJS.emit(MeetJS.SOCKET_EVENTS.BYE, content.peerName);
+      handleBye(content);
+      break;
+    case MeetJS.SOCKET_EVENTS.BABYE:
+      console.log("received BaBye");
+      MeetJS.emit(MeetJS.LOCAL_EVENTS.REMOVE_USER, content.peerName);
       break;
     case MeetJS.SOCKET_EVENTS.MESSAGE:
       MeetJS.emit(MeetJS.LOCAL_EVENTS.RECEIVED_MESSAGE, {
@@ -6056,6 +6071,12 @@ const MessageHandler = (content) => {
   }
 };
 
+const handleBye = (content) => {
+  console.log("received Bye");
+  MeetJS.emit(MeetJS.LOCAL_EVENTS.REMOVE_USER, content.peerName);
+  var user = MeetJS.getUser(content.peerName);
+  user.endCallBye();
+};
 const handleOffer = (content) => {
   console.log("received offer");
   var user = MeetJS.getUser(content.peerName);
@@ -6297,6 +6318,29 @@ const Stream = function () {
 Stream.prototype.isMeetJS = true;
 
 module.exports = Stream;
+
+},{}],9:[function(require,module,exports){
+const Utils = function () {};
+
+Utils.prototype.isMeetJS = true;
+
+Utils.prototype.arrayToKeyValue = (arr) => {
+  let obj = {};
+
+  arr.forEach(function (v) {
+    obj[v] = v;
+  });
+};
+
+Utils.prototype.keyValueToArray = (obj) => {
+  let arr = Object.entries(obj);
+  return arr;
+};
+
+Utils.prototype.getKeysFromObject = (obj) => {
+  return Object.keys(obj);
+};
+module.exports = new Utils();
 
 },{}]},{},[5])(5)
 });
