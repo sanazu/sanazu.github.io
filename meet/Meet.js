@@ -99,6 +99,45 @@ const EventEmitter = function (self) {
 module.exports = EventEmitter;
 
 },{"./Constants":1}],3:[function(require,module,exports){
+const Logger = function () {};
+
+const logTypes = ["log", "info", "warn", "error"];
+
+Logger.prototype.isMeetJS = true;
+
+logTypes.forEach(function (type) {
+  Logger.prototype[type] = function () {
+    if (!MeetJS.debug) {
+      return;
+    }
+
+    if (arguments.length === 1) {
+      console[type](arguments[0]);
+      return;
+    }
+
+    // if more than one arguments are present, do grouped logs
+    if (type(arguments[0]) === "object") {
+      throw new Error("log group name cannot be object");
+    }
+
+    console.group(String(arguments[0]));
+
+    [...arguments].forEach(function (msg, index) {
+      if (index === 0) return;
+
+      console[type](msg);
+    });
+
+    console.groupEnd();
+  };
+});
+
+window.Logger = new Logger();
+
+module.exports = Logger;
+
+},{}],4:[function(require,module,exports){
 const configuration = {
   iceServers: [
     {
@@ -293,20 +332,25 @@ class MeetPeer extends RTCPeerConnection {
 
 module.exports = MeetPeer;
 
-},{}],4:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 const SignalingChannel = require("./SignalingChannel");
 const MeetPeer = require("./MeetPeer");
 const Stream = require("./Stream");
 const MessageHandler = require("./MessageHandler");
 const EventEmitter = require("./EventEmitter");
+const Logger = require("./Logger");
 
 const MeetJS = function (props) {
   window.MeetJS = this;
   EventEmitter(this);
+
+  // Logger.log('hello', 'error');
+
   var stream = new Stream();
 
-  this.users = [];
+  this.users = []; // collection of peers
   this.activeUsers = [];
+  this.debug = props.debug;
   var privateCall = props.autoRevokeMedia || false;
   // this.isActiveStatus = false;
 
@@ -458,7 +502,7 @@ const MeetJS = function (props) {
   this.on(this.SOCKET_EVENTS.BYE, (remotePeer) => {
     console.log("Hanging up call with " + remotePeer);
     peerEvent("endCall", remotePeer);
-    this.emit(this.LOCAL_EVENTS.REMOVE_USER, remotePeer);
+    // this.emit(this.LOCAL_EVENTS.REMOVE_USER, remotePeer);
   });
 
   this.on(this.LOCAL_EVENTS.REMOVE_USER, (remotePeer) => {
@@ -523,7 +567,7 @@ MeetJS.prototype.DEFAULT_PROPS = {
 
 module.exports = MeetJS;
 
-},{"./EventEmitter":2,"./MeetPeer":3,"./MessageHandler":5,"./SignalingChannel":6,"./Stream":7}],5:[function(require,module,exports){
+},{"./EventEmitter":2,"./Logger":3,"./MeetPeer":4,"./MessageHandler":6,"./SignalingChannel":7,"./Stream":8}],6:[function(require,module,exports){
 const MessageHandler = (content) => {
   console.log("MessageHandler", content);
 
@@ -552,7 +596,7 @@ const MessageHandler = (content) => {
       MeetJS.emit(MeetJS.SOCKET_EVENTS.INVITE, content.peerName);
       break;
     case MeetJS.SOCKET_EVENTS.BYE:
-      MeetJS.emit(MeetJS.LOCAL_EVENTS.REMOVE_USER, content.peerName);
+      MeetJS.emit(MeetJS.SOCKET_EVENTS.BYE, content.peerName);
       break;
     case MeetJS.SOCKET_EVENTS.MESSAGE:
       MeetJS.emit(MeetJS.LOCAL_EVENTS.RECEIVED_MESSAGE, {
@@ -587,7 +631,7 @@ const handleAnswer = (content) => {
 
 module.exports = MessageHandler;
 
-},{}],6:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 const getAbsoluteUrl = (address, contextPath) => {
   const getProtocol = () => {
     if (!address) {
@@ -619,6 +663,7 @@ class SignalingChannel extends WebSocket {
     super.onopen = this.onopen;
     super.onclose = this.onclose;
     super.onerror = this.onerror;
+    this.superSend = super.send;
     this.PING_INTERVAL = 29; // seconds
     this.SECOND = 1000;
     this.id = Math.floor(Math.random() * 2) + 1;
@@ -710,7 +755,7 @@ class SignalingChannel extends WebSocket {
     message.peerName = MeetJS.userName;
     message.peerId = this.id;
     if (this.readyState === this.OPEN) {
-      super.send(JSON.stringify(message));
+      this.superSend(JSON.stringify(message));
       return;
     }
 
@@ -756,7 +801,7 @@ class SignalingChannel extends WebSocket {
 
 module.exports = SignalingChannel;
 
-},{}],7:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 // this module will have Stream events logic in it
 
 const Stream = function () {
@@ -808,5 +853,5 @@ Stream.prototype.isMeetJS = true;
 
 module.exports = Stream;
 
-},{}]},{},[4])(4)
+},{}]},{},[5])(5)
 });
