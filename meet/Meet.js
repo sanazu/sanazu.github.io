@@ -102,9 +102,48 @@ module.exports = EventEmitter;
 },{"./Constants":1}],3:[function(require,module,exports){
 const Logger = function () {};
 
+window.Logger = new Logger();
+window.Logger.logs = []; // logs of created instance
+
 const logTypes = ["log", "info", "warn", "error"];
 
 Logger.prototype.isMeetJS = true;
+
+Logger.prototype.logMessage = function (type, message) {
+  let logMsg = `${message} - ${type} - ${new Date().toLocaleString()}`;
+
+  if (!Logger.logs) {
+    Logger.logs = [];
+  }
+
+  Logger.logs.push(logMsg);
+};
+
+Logger.prototype.print = function () {
+  if (!Logger.logs || Logger.logs.length === 0) {
+    return;
+  }
+
+  let content = "";
+
+  Logger.logs.forEach(function (log, index) {
+    content += `${log}`;
+
+    if (index !== Logger.logs.length) {
+      content += "\n";
+    }
+  });
+
+  // console.log(content);
+
+  let uri = `data:application/octet-stream,${encodeURIComponent(content)}`;
+
+  var a = document.createElement("a");
+  a.href = uri;
+  a.download = `MeetJS-log-${new Date().toLocaleString()}.txt`;
+  a.click();
+  return "log file is downloading.....";
+};
 
 logTypes.forEach(function (type) {
   Logger.prototype[type] = function () {
@@ -114,45 +153,56 @@ logTypes.forEach(function (type) {
 
     if (arguments.length === 1) {
       console[type](arguments[0]);
+      Logger.prototype.logMessage(type, arguments[0]);
       return;
     }
 
     // if more than one arguments are present, do grouped logs
-    if (type(arguments[0]) === "object") {
+    if (typeof arguments[0] === "object") {
       throw new Error("log group name cannot be object");
     }
 
-    console.group(String(arguments[0]));
+    const groupName = arguments[0];
+
+    console.group(groupName);
 
     [...arguments].forEach(function (msg, index) {
       if (index === 0) return;
 
       console[type](msg);
+
+      Logger.prototype.logMessage(type, `${groupName} - ${msg}`);
     });
 
     console.groupEnd();
   };
 });
 
-window.Logger = new Logger();
-
 module.exports = Logger;
 
 },{}],4:[function(require,module,exports){
-const configuration = {
+const defautConfig = {
   iceServers: [
+    // {
+    //   urls: ["stun:stun.l.google.com:19302"],
+    // },
+    // {
+    //   urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
+    //   credential: "muazkh",
+    //   username: "webrtc@live.com",
+    // },
+    // {
+    //   urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
+    //   username: "normanarguet@gmail.com",
+    //   credential: "1ceCre4m007",
+    // },
     {
-      urls: ["stun:stun.l.google.com:19302"],
-    },
-    {
-      urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
-      credential: "muazkh",
-      username: "webrtc@live.com",
-    },
-    {
-      urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
-      username: "normanarguet@gmail.com",
-      credential: "1ceCre4m007",
+      urls: [
+        "turn:207.148.124.163:3478",
+        "turn:207.148.124.163:3478?transport=tcp",
+      ],
+      username: "1595116987",
+      credential: "BJFqBUW7gC3OROEG7Xhthn6x54U=",
     },
   ],
 };
@@ -165,14 +215,9 @@ const rtpConfig = {
   ],
 };
 
-const offerOptions = {
-  offerToReceiveAudio: true,
-  offerToReceiveVideo: true,
-};
-
 class MeetPeer extends RTCPeerConnection {
   constructor(remotePeer, id = null) {
-    super(configuration, rtpConfig);
+    super(defautConfig, rtpConfig);
     this.remotePeer = remotePeer;
     this.rStream = null;
     this.lStream = null;
@@ -209,6 +254,24 @@ class MeetPeer extends RTCPeerConnection {
     this.callState = false;
   };
 
+  initConfiguration = (configuration) => {
+    if (MeetJS.customConfig) {
+      console.log("configuration Applied successfully");
+      this.setConfiguration(configuration);
+      return;
+    } else {
+      console.log("failed to set Custom ConFig");
+      return;
+    }
+  };
+
+  getOfferOptions = () => {
+    return {
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: true,
+    };
+  };
+
   configureStream = (localStream) => {
     if (!localStream) return;
     this.lStream = localStream;
@@ -233,13 +296,12 @@ class MeetPeer extends RTCPeerConnection {
   };
 
   sendOffer = () => {
-    this.createOffer(offerOptions)
+    this.createOffer(this.getOfferOptions())
       .then(this.prepareOffer)
       .catch((e) => this.onError(e));
   };
 
   prepareOffer = (offer) => {
-    this.localOffer = offer;
     this.setLocalDescription(offer);
     console.log("sending offer");
     MeetJS.send({
@@ -328,7 +390,6 @@ class MeetPeer extends RTCPeerConnection {
   };
 
   handleAnswer = (answer) => {
-    // this.configureStream(this.lStream);
     this.setRemoteDescription(new RTCSessionDescription(answer));
     this.callState = true;
     console.log("connection established successfully!!");
@@ -361,6 +422,7 @@ const MeetJS = function (props) {
   this.users = []; // collection of peers
   this.activeUsers = [];
   this.debug = props.debug;
+  this.customConfig = props.customConfig || false;
   var privateCall = props.autoRevokeMedia || false;
   // this.isActiveStatus = false;
 
@@ -603,8 +665,7 @@ const MessageHandler = (content) => {
       MeetJS.emit(MeetJS.SOCKET_EVENTS.CANCELLED, content.peerName);
       break;
     case MeetJS.SOCKET_EVENTS.INVITE:
-      console.log("received invite");
-      MeetJS.emit(MeetJS.SOCKET_EVENTS.INVITE, content.peerName);
+      handleInvite(content);
       break;
     case MeetJS.SOCKET_EVENTS.BYE:
       handleBye(content);
@@ -632,9 +693,22 @@ const handleBye = (content) => {
   var user = MeetJS.getUser(content.peerName);
   user.endCallBye();
 };
+
+const handleInvite = (content) => {
+  console.log("received invite");
+  if (content.configuration) {
+    var user = MeetJS.getUser(content.peerName);
+    user.initConfiguration(content.configuration);
+  }
+
+  MeetJS.emit(MeetJS.SOCKET_EVENTS.INVITE, content.peerName);
+};
 const handleOffer = (content) => {
   console.log("received offer");
   var user = MeetJS.getUser(content.peerName);
+  if (content.configuration) {
+    user.initConfiguration(content.configuration);
+  }
   user.handleOffer(content.data);
 };
 
