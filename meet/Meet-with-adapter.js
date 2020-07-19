@@ -5628,26 +5628,18 @@ module.exports = Logger;
 },{}],4:[function(require,module,exports){
 const defautConfig = {
   iceServers: [
-    // {
-    //   urls: ["stun:stun.l.google.com:19302"],
-    // },
-    // {
-    //   urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
-    //   credential: "muazkh",
-    //   username: "webrtc@live.com",
-    // },
-    // {
-    //   urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
-    //   username: "normanarguet@gmail.com",
-    //   credential: "1ceCre4m007",
-    // },
     {
-      urls: [
-        "turn:207.148.124.163:3478",
-        "turn:207.148.124.163:3478?transport=tcp",
-      ],
-      username: "1595146658",
-      credential: " W0hgIDvw9QYDTvmt7/NKQz39ByA=",
+      urls: ["stun:stun.l.google.com:19302"],
+    },
+    {
+      urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
+      credential: "muazkh",
+      username: "webrtc@live.com",
+    },
+    {
+      urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
+      username: "normanarguet@gmail.com",
+      credential: "1ceCre4m007",
     },
   ],
 };
