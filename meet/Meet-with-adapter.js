@@ -5646,8 +5646,8 @@ const defautConfig = {
         "turn:207.148.124.163:3478",
         "turn:207.148.124.163:3478?transport=tcp",
       ],
-      username: "1595116987",
-      credential: "BJFqBUW7gC3OROEG7Xhthn6x54U=",
+      username: "1595146658",
+      credential: " W0hgIDvw9QYDTvmt7/NKQz39ByA=",
     },
   ],
 };
