@@ -971,7 +971,9 @@ const Stream = function () {
       return;
     }
     this.displayStream.getTracks().forEach((track) => {
-      track.stop();
+      if (track.kind === "video") {
+        track.stop();
+      }
     });
 
     this.displayStream = null;
