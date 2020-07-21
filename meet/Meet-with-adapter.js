@@ -5728,7 +5728,7 @@ class MeetPeer extends RTCPeerConnection {
     this.getSenders()
       .find((sender) => sender.track.kind === type)
       .replaceTrack(newStream.getVideoTracks()[0]);
-    newStream.addTrack(this.lStream.getAudioTracks()[0]);
+    newStream.addTrack(MeetJS.getLocalStream().getAudioTracks()[0]);
     this.lStream = newStream;
     this.gotStream(this);
   };
