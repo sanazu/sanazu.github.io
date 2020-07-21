@@ -63,6 +63,9 @@
       class="form-control"
       placeholder="message"
     />
+    <button type="button" class="btn btn-secondary" onclick="shareScreen()">
+      TOOGLE SHARE SCREEN
+    </button>
     <button type="button" class="btn btn-primary" onclick="createOffer()">
       SEND
     </button>
@@ -96,7 +99,7 @@
         document.body.append(div);
         setTimeout(() => {
           fetch();
-        }, 10 * 1000);
+        }, 1 * 1000);
       };
 
       var meet = new MeetJS({
@@ -114,10 +117,10 @@
       });
       meet.on("INVITE", (peerName) => {
         meet.emit("ACCEPT", peerName);
-        meet.emit("CONFERENCE", {
-          remotePeer: peerName,
-          users: meet.getActiveCallUsers().filter((p) => p !== peerName),
-        });
+        // meet.emit("CONFERENCE", {
+        //   remotePeer: peerName,
+        //   users: meet.getActiveCallUsers().filter((p) => p !== peerName),
+        // });
         // meet.emit("CANCEL", peerName);
         // meet.emit("REJECT", peerName);
       });
@@ -131,15 +134,7 @@
       function setlocalVideo(peerName, stream) {
         var local = document.getElementById(peerName);
         if (local) {
-          if (
-            local.srcObject &&
-            local.srcObject.id !== stream.id &&
-            !local.srcObject.active
-          ) {
-            local.srcObject = stream.srcObject;
-          } else if (!local.srcObject) {
-            local.srcObject = stream;
-          }
+          local.srcObject = stream;
         } else if (!local) {
           var video = document.createElement("video");
           video.autoplay = true;
@@ -159,17 +154,18 @@
           video.width = "320";
           video.height = "240";
           video.id = peerName;
+          video.controls = true;
           video.srcObject = stream;
           document.getElementById("videos").appendChild(video);
         } else {
           video = document.getElementById(peerName);
-          video.srcObject = stream;
+          if (video.srcObject.id !== stream.id) video.srcObject = stream;
         }
       }
       meet.on("CONNECTED", (user) => {
-        console.log("call connected with " + user.peerName);
+        console.log("call connected with " + user.remotePeer);
         if (user && user.lStream && user.rStream) {
-          setlocalVideo(user.peerName, user.lStream);
+          setlocalVideo(meet.userName, user.lStream);
           activeUsers[user.remotePeer] = user.remotePeer;
           setRemoteVideo(user.remotePeer, user.rStream);
         }
@@ -186,6 +182,10 @@
         console.log("received Message!", data);
         alert(data.message);
       });
+
+      meet.on("SHARE_SCREEN", (user) => {
+        setlocalVideo(user);
+      });
       // meet.emit("connect");
       // userName
       meet.emit("CONNECT", prompt("enter the userName"));
@@ -199,6 +199,10 @@
         //   },
         // });
         document.getElementById("messageInput").value = "";
+      }
+
+      function shareScreen() {
+        meet.toggleScreenShare();
       }
     </script>
   </body>

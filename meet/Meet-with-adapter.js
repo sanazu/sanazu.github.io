@@ -5479,6 +5479,7 @@ const LOCAL_EVENTS = {
   MUTE_AUDIO: "MUTE_AUDIO",
   MUTE_VIDEO: "MUTE_VIDEO",
   STOP_MEDIA: "STOP_MEDIA",
+  SHARE_SCREEN: "SHARE_SCREEN",
 };
 
 module.exports = {
@@ -5631,6 +5632,11 @@ const defautConfig = {
     {
       urls: ["stun:stun.l.google.com:19302"],
     },
+    // {
+    //   urls: ["turn:192.168.43.1:3478"],
+    //   username: "demo",
+    //   credential: "demo",
+    // },
     {
       urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
       credential: "muazkh",
@@ -5654,7 +5660,7 @@ const rtpConfig = {
 
 class MeetPeer extends RTCPeerConnection {
   constructor(remotePeer, id = null) {
-    super(defautConfig, rtpConfig);
+    super(defautConfig);
     this.remotePeer = remotePeer;
     this.rStream = null;
     this.lStream = null;
@@ -5662,7 +5668,7 @@ class MeetPeer extends RTCPeerConnection {
     this.intimateOffer = null;
     this.awaitOffer = null;
     this.handleCallEvents = null;
-    this.configureDataChannel();
+    // this.configureDataChannel();
     super.onicecandidate = this.onicecandidate;
     super.onnegotiationneeded = this.onnegotiationneeded;
     super.ontrack = this.ontrack;
@@ -5712,14 +5718,24 @@ class MeetPeer extends RTCPeerConnection {
   configureStream = (localStream) => {
     if (!localStream) return;
     this.lStream = localStream;
-    localStream
-      .getTracks()
-      .forEach((track) => this.addTrack(track, localStream));
+    localStream.getTracks().forEach((track) => {
+      this.addTrack(track, localStream);
+    });
     console.log("stream added : " + localStream.id);
+  };
+
+  changeStream = (newStream, type) => {
+    this.getSenders()
+      .find((sender) => sender.track.kind === type)
+      .replaceTrack(newStream.getVideoTracks()[0]);
+    newStream.addTrack(this.lStream.getAudioTracks()[0]);
+    this.lStream = newStream;
+    this.gotStream(this);
   };
 
   ontrack = (e) => {
     if (this.lStream.id !== e.streams[0].id) {
+      console.log(e.streams[0].id);
       console.log("stream received");
       console.log(e.streams[0]);
       this.rStream = e.streams[0];
@@ -5857,6 +5873,7 @@ const MeetJS = function (props) {
   var stream = new Stream();
 
   this.users = []; // collection of peers
+  this.sharingScreen = false;
   this.activeUsers = [];
   this.debug = props.debug;
   this.customConfig = props.customConfig || false;
@@ -5889,6 +5906,24 @@ const MeetJS = function (props) {
       return stream.localStream;
     } else {
       throw new Error("Connect to camera first!");
+    }
+  };
+
+  this.toggleScreenShare = async () => {
+    if (!this.isScreenShare) {
+      if (!stream.displayStream) await stream.connectShareMedia();
+      console.log("ScreenSharing enabled");
+      this.getActiveCallUsers().forEach((u) => {
+        this.users[u].changeStream(stream.displayStream, "video");
+      });
+      this.isScreenShare = true;
+    } else {
+      if (stream.displayStream) stream.disconnectDisplayShare();
+      console.log("ScreenSharing disabled");
+      this.getActiveCallUsers().forEach((u) => {
+        this.users[u].changeStream(stream.localStream, "video");
+      });
+      this.isScreenShare = false;
     }
   };
 
@@ -5932,23 +5967,17 @@ const MeetJS = function (props) {
     });
   });
 
-  var createOrGetUser = (userName) => {
-    var user;
-    if (this.users[userName]) {
-      user = this.users[userName];
-      var state = user.connectionState;
-      if (state === "failed") {
-        delete this.users[userName];
-        user = initializeUser(userName);
-      }
-      return user;
-    } else {
-      user = initializeUser(userName);
+  this.getUser = (userName) => {
+    if (!userName) {
+      console.errors("userName is empty");
+      return;
     }
-    return user;
+    if (this.users[userName]) {
+      return this.users[userName];
+    } else {
+      return initializeUser(userName);
+    }
   };
-
-  this.getUser = createOrGetUser;
 
   this.on(this.LOCAL_EVENTS.MUTE_AUDIO, () =>
     stream.toogleMute({ audio: true })
@@ -5981,8 +6010,6 @@ const MeetJS = function (props) {
       });
     }
   });
-
-  this.on("createOrGetUser", (userName) => createOrGetUser(userName));
 
   this.on(this.SOCKET_EVENTS.CALL, (remotePeer) => {
     console.log("calling " + remotePeer);
@@ -6022,7 +6049,7 @@ const MeetJS = function (props) {
   });
 
   var peerEvent = (eventName, remotePeer) => {
-    var user = createOrGetUser(remotePeer);
+    var user = this.getUser(remotePeer);
     user[eventName]();
   };
   var failed = (e) => {
@@ -6350,6 +6377,7 @@ const Stream = function () {
         });
     });
   };
+
   this.toogleMute = ({ audio, video }) => {
     if (!this.localStream) {
       console.log("Connect to MediaDevices first!");
@@ -6377,6 +6405,36 @@ const Stream = function () {
       if (track.kind === "audio" && audio) {
         track.stop();
       }
+    });
+
+    this.localStream = null;
+  };
+
+  this.disconnectDisplayShare = () => {
+    if (!this.displayStream) {
+      console.log("Connect to screenShare first!");
+      return;
+    }
+    this.displayStream.getTracks().forEach((track) => {
+      track.stop();
+    });
+
+    this.displayStream = null;
+  };
+
+  this.connectShareMedia = () => {
+    return new Promise((resolve, reject) => {
+      navigator.mediaDevices
+        .getDisplayMedia({
+          video: true,
+        })
+        .then((screen) => {
+          this.displayStream = screen;
+          resolve(true);
+        })
+        .catch((err) => {
+          reject(err);
+        });
     });
   };
 };
