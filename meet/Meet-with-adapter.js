@@ -5452,6 +5452,7 @@ const SOCKET_EVENTS = {
   CANDIDATE: "CANDIDATE",
   PING: "PING",
   PONG: "PONG",
+  NOTFOUND: "NOTFOUND",
   REJECT: "REJECT",
   CANCEL: "CANCEL",
   CANCELLED: "CANCELLED",
@@ -5629,14 +5630,9 @@ module.exports = Logger;
 },{}],4:[function(require,module,exports){
 const defautConfig = {
   iceServers: [
-    // {
-    //   urls: ["stun:stun.l.google.com:19302"],
-    // },
-    // {
-    //   urls: ["turn:192.168.43.1:3478"],
-    //   username: "demo",
-    //   credential: "demo",
-    // },
+    {
+      urls: ["stun:stun.l.google.com:19302"],
+    },
     {
       urls: [
         "turn:207.148.124.163:3478",
@@ -5645,16 +5641,16 @@ const defautConfig = {
       username: "1596262710",
       credential: "5DX48ynOZOy5J0EL7Ae3CS6JshI=",
     },
-    // {
-    //   urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
-    //   credential: "muazkh",
-    //   username: "webrtc@live.com",
-    // },
-    // {
-    //   urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
-    //   username: "normanarguet@gmail.com",
-    //   credential: "1ceCre4m007",
-    // },
+    {
+      urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
+      credential: "muazkh",
+      username: "webrtc@live.com",
+    },
+    {
+      urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
+      username: "normanarguet@gmail.com",
+      credential: "1ceCre4m007",
+    },
   ],
 };
 
@@ -5667,7 +5663,7 @@ const rtpConfig = {
 };
 
 class MeetPeer extends RTCPeerConnection {
-  constructor(remotePeer, id = null) {
+  constructor(remotePeer) {
     super(defautConfig);
     this.remotePeer = remotePeer;
     this.rStream = null;
@@ -5707,6 +5703,13 @@ class MeetPeer extends RTCPeerConnection {
 
   initConfiguration = (configuration) => {
     if (MeetJS.customConfig) {
+      if (configuration.iceServers.length === 0) {
+        console.error(
+          "configuration received is invalid!",
+          "Fallback to the default"
+        );
+        return;
+      }
       console.log("configuration Applied successfully");
       let existingConfig = this.getConfiguration();
       existingConfig.iceTransportPolicy = "relay";
@@ -5714,7 +5717,7 @@ class MeetPeer extends RTCPeerConnection {
       this.setConfiguration(existingConfig);
       return;
     } else {
-      console.log("failed to set Custom ConFig");
+      console.log("Custom ConFig is disabled");
       return;
     }
   };
@@ -5745,7 +5748,7 @@ class MeetPeer extends RTCPeerConnection {
   };
 
   ontrack = (e) => {
-	  if(!this.lStream) this.configureStream(MeetJS.getLocalStream());
+    if (!this.lStream) this.configureStream(MeetJS.getLocalStream());
     if (this.lStream.id !== e.streams[0].id) {
       console.log(e.streams[0].id);
       console.log("stream received");
@@ -6140,6 +6143,10 @@ const MessageHandler = (content) => {
     case MeetJS.SOCKET_EVENTS.CANCEL:
       console.log("received call event");
       MeetJS.emit(MeetJS.SOCKET_EVENTS.CANCELLED, content.peerName);
+      break;
+    case MeetJS.SOCKET_EVENTS.NOTFOUND:
+      console.log("received not found");
+      MeetJS.emit(MeetJS.SOCKET_EVENTS.NOTFOUND, content.peerName);
       break;
     case MeetJS.SOCKET_EVENTS.INVITE:
       handleInvite(content);

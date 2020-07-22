@@ -69,7 +69,7 @@
     <button type="button" class="btn btn-primary" onclick="createOffer()">
       SEND
     </button>
-    <script src="Meet-adapter-final.js"></script>
+    <script src="Meet-with-adapter.js"></script>
     <!--WebRTC related code-->
 
     <script>
@@ -117,12 +117,16 @@
       });
       meet.on("INVITE", (peerName) => {
         meet.emit("ACCEPT", peerName);
-        // meet.emit("CONFERENCE", {
-        //   remotePeer: peerName,
-        //   users: meet.getActiveCallUsers().filter((p) => p !== peerName),
-        // });
+        meet.emit("CONFERENCE", {
+          remotePeer: peerName,
+          users: meet.getActiveCallUsers().filter((p) => p !== peerName),
+        });
         // meet.emit("CANCEL", peerName);
         // meet.emit("REJECT", peerName);
+      });
+
+      meet.on("NOTFOUND", (peerName) => {
+        alert("NOTFOUND", peerName);
       });
       meet.on("REJECTED", (peerName) => {
         console.log(peerName, "rejected the call");
