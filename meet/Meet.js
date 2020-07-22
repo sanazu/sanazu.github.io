@@ -184,24 +184,32 @@ module.exports = Logger;
 },{}],4:[function(require,module,exports){
 const defautConfig = {
   iceServers: [
-    {
-      urls: ["stun:stun.l.google.com:19302"],
-    },
+    // {
+    //   urls: ["stun:stun.l.google.com:19302"],
+    // },
     // {
     //   urls: ["turn:192.168.43.1:3478"],
     //   username: "demo",
     //   credential: "demo",
     // },
     {
-      urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
-      credential: "muazkh",
-      username: "webrtc@live.com",
+      urls: [
+        "turn:207.148.124.163:3478",
+        "turn:207.148.124.163:3478?transport=tcp",
+      ],
+      username: "1596262710",
+      credential: "5DX48ynOZOy5J0EL7Ae3CS6JshI=",
     },
-    {
-      urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
-      username: "normanarguet@gmail.com",
-      credential: "1ceCre4m007",
-    },
+    // {
+    //   urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
+    //   credential: "muazkh",
+    //   username: "webrtc@live.com",
+    // },
+    // {
+    //   urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
+    //   username: "normanarguet@gmail.com",
+    //   credential: "1ceCre4m007",
+    // },
   ],
 };
 
@@ -611,6 +619,7 @@ const MeetJS = function (props) {
     var peer = e.currentTarget;
     if (peer.connectionState === "failed") {
       this.emit(this.SOCKET_EVENTS.DISCONNECTED, peer.remotePeer);
+      this.emit(this.LOCAL_EVENTS.REMOVE_USER, peer.remotePeer);
     }
     console.log(peer.remotePeer, peer.connectionState);
   };
