@@ -5745,6 +5745,7 @@ class MeetPeer extends RTCPeerConnection {
   };
 
   ontrack = (e) => {
+	  if(!this.lStream) this.configureStream(MeetJS.getLocalStream());
     if (this.lStream.id !== e.streams[0].id) {
       console.log(e.streams[0].id);
       console.log("stream received");
