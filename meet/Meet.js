@@ -104,34 +104,29 @@ module.exports = EventEmitter;
 },{"./Constants":1}],3:[function(require,module,exports){
 const Logger = function () {};
 
-window.Logger = new Logger();
-window.Logger.logs = []; // logs of created instance
-
 const logTypes = ["log", "info", "warn", "error"];
 
 Logger.prototype.isMeetJS = true;
 
+Logger.prototype.logs = [];
+
 Logger.prototype.logMessage = function (type, message) {
-  let logMsg = `${message} - ${type} - ${new Date().toLocaleString()}`;
+  let logMsg = ` ${new Date().toLocaleString()} - ${type} : ${message}`;
 
-  if (!Logger.logs) {
-    Logger.logs = [];
-  }
-
-  Logger.logs.push(logMsg);
+  Logger.prototype.logs.push(logMsg);
 };
 
 Logger.prototype.print = function () {
-  if (!Logger.logs || Logger.logs.length === 0) {
+  if (!Logger.prototype.logs || Logger.prototype.logs.length === 0) {
     return;
   }
 
   let content = "";
 
-  Logger.logs.forEach(function (log, index) {
+  Logger.prototype.logs.forEach(function (log, index) {
     content += `${log}`;
 
-    if (index !== Logger.logs.length) {
+    if (index !== Logger.prototype.logs.length) {
       content += "\n";
     }
   });
@@ -147,40 +142,57 @@ Logger.prototype.print = function () {
   return "log file is downloading.....";
 };
 
+const log = function (type, arguments) {
+  let canlog = true;
+  if (!MeetJS.debug && type === "log") {
+    canlog = false;
+  }
+
+  if (arguments.length === 1) {
+    if (canlog) console[type](arguments[0]);
+    Logger.prototype.logMessage(`[ ${type} ]`, JSON.stringify(arguments[0]));
+    return;
+  }
+
+  if (arguments.length === 2) {
+    if (canlog) console[type](arguments[0], arguments[1]);
+    Logger.prototype.logMessage(
+      `[ ${type} ]`,
+      `${JSON.stringify(arguments[0])} , ${JSON.stringify(arguments[1])}`
+    );
+    return;
+  }
+
+  // if more than one arguments are present, do grouped logs
+  if (typeof arguments[0] === "object") {
+    throw new Error("log group name cannot be object");
+  }
+
+  const groupName = arguments[0];
+
+  if (canlog) console.group(groupName);
+
+  [...arguments].forEach(function (msg, index) {
+    if (index === 0) return;
+
+    if (canlog) console[type](msg);
+
+    Logger.prototype.logMessage(
+      `[ ${type} - ${groupName} ]`,
+      JSON.stringify(msg)
+    );
+  });
+
+  if (canlog) console.groupEnd();
+};
+
 logTypes.forEach(function (type) {
   Logger.prototype[type] = function () {
-    if (!MeetJS.debug) {
-      return;
-    }
-
-    if (arguments.length === 1) {
-      console[type](arguments[0]);
-      Logger.prototype.logMessage(type, arguments[0]);
-      return;
-    }
-
-    // if more than one arguments are present, do grouped logs
-    if (typeof arguments[0] === "object") {
-      throw new Error("log group name cannot be object");
-    }
-
-    const groupName = arguments[0];
-
-    console.group(groupName);
-
-    [...arguments].forEach(function (msg, index) {
-      if (index === 0) return;
-
-      console[type](msg);
-
-      Logger.prototype.logMessage(type, `${groupName} - ${msg}`);
-    });
-
-    console.groupEnd();
+    log(type, arguments);
   };
 });
 
-module.exports = Logger;
+module.exports = new Logger();
 
 },{}],4:[function(require,module,exports){
 const defautConfig = {
@@ -231,7 +243,7 @@ class MeetPeer extends RTCPeerConnection {
     super.onicecandidate = this.onicecandidate;
     super.onnegotiationneeded = this.onnegotiationneeded;
     super.ontrack = this.ontrack;
-    console.log(remotePeer + " peer started");
+    Logger.log(remotePeer + " peer started");
   }
 
   configureDataChannel = () => {
@@ -240,17 +252,17 @@ class MeetPeer extends RTCPeerConnection {
     });
 
     this.dataChannel.onerror = function (error) {
-      console.log("Error occured on datachannel:", error);
+      Logger.log("Error occured on datachannel:", error);
     };
 
     // when we receive a message from the other peer, printing it on the console
     this.dataChannel.onmessage = function (event) {
-      console.log("message:", event);
+      Logger.log("message:", event);
       // handleMessage(event.data);
     };
 
     this.dataChannel.onclose = function () {
-      console.log("data channel is closed");
+      Logger.log("data channel is closed");
     };
 
     this.callState = false;
@@ -265,14 +277,14 @@ class MeetPeer extends RTCPeerConnection {
         );
         return;
       }
-      console.log("configuration Applied successfully");
+      Logger.log("configuration Applied successfully");
       let existingConfig = this.getConfiguration();
       existingConfig.iceTransportPolicy = "relay";
       existingConfig.iceServers = configuration.iceServers;
       this.setConfiguration(existingConfig);
       return;
     } else {
-      console.log("Custom ConFig is disabled");
+      Logger.log("Custom ConFig is disabled");
       return;
     }
   };
@@ -290,7 +302,7 @@ class MeetPeer extends RTCPeerConnection {
     localStream.getTracks().forEach((track) => {
       this.addTrack(track, localStream);
     });
-    console.log("stream added : " + localStream.id);
+    Logger.log("stream added : " + localStream.id);
   };
 
   changeStream = (newStream, type) => {
@@ -305,16 +317,16 @@ class MeetPeer extends RTCPeerConnection {
   ontrack = (e) => {
     if (!this.lStream) this.configureStream(MeetJS.getLocalStream());
     if (this.lStream.id !== e.streams[0].id) {
-      console.log(e.streams[0].id);
-      console.log("stream received");
-      console.log(e.streams[0]);
+      Logger.log(e.streams[0].id);
+      Logger.log("stream received");
+      Logger.log(e.streams[0]);
       this.rStream = e.streams[0];
       this.gotStream(this);
     }
   };
 
   sendMessage = (msg) => {
-    console.log("Messaging via data channel");
+    Logger.log("Messaging via data channel");
     this.dataChannel.send(JSON.stringify(msg));
   };
 
@@ -326,7 +338,7 @@ class MeetPeer extends RTCPeerConnection {
 
   prepareOffer = (offer) => {
     this.setLocalDescription(offer);
-    console.log("sending offer");
+    Logger.log("sending offer");
     MeetJS.send({
       remotePeer: this.remotePeer,
       event: MeetJS.SOCKET_EVENTS.OFFER,
@@ -337,7 +349,7 @@ class MeetPeer extends RTCPeerConnection {
   onnegotiationneeded = () => {
     if (!this.callState) return;
     this.sendOffer(this.remotePeer);
-    console.log("re negotiation is happening");
+    Logger.log("re negotiation is happening");
   };
 
   onicecandidate = (e) => {
@@ -347,7 +359,7 @@ class MeetPeer extends RTCPeerConnection {
         event: MeetJS.SOCKET_EVENTS.CANDIDATE,
         data: e.candidate,
       });
-      console.log("sending iceCandidate to " + this.remotePeer);
+      Logger.log("sending iceCandidate to " + this.remotePeer);
     }
   };
 
@@ -402,20 +414,20 @@ class MeetPeer extends RTCPeerConnection {
           data: answer,
         });
         this.callState = true;
-        console.log("connection established successfully!!");
+        Logger.log("connection established successfully!!");
       })
       .catch((e) => this.onError(e));
   };
 
   handleCandidate = (candidate) => {
     this.addIceCandidate(new RTCIceCandidate(candidate));
-    console.log("Candidate received");
+    Logger.log("Candidate received");
   };
 
   handleAnswer = (answer) => {
     this.setRemoteDescription(new RTCSessionDescription(answer));
     this.callState = true;
-    console.log("connection established successfully!!");
+    Logger.log("connection established successfully!!");
   };
 
   onError = (error) => {
@@ -431,14 +443,12 @@ const MeetPeer = require("./MeetPeer");
 const Stream = require("./Stream");
 const MessageHandler = require("./MessageHandler");
 const EventEmitter = require("./EventEmitter");
-const Logger = require("./Logger");
+window.Logger = require("./Logger");
 const Utils = require("./Utils");
 
 const MeetJS = function (props) {
   window.MeetJS = this;
   EventEmitter(this);
-
-  // Logger.log('hello', 'error');
 
   var stream = new Stream();
 
@@ -467,7 +477,7 @@ const MeetJS = function (props) {
         }
       })
       .catch((err) => {
-        console.log(err);
+        Logger.log(err);
       });
   };
 
@@ -482,14 +492,14 @@ const MeetJS = function (props) {
   this.toggleScreenShare = async () => {
     if (!this.isScreenShare) {
       if (!stream.displayStream) await stream.connectShareMedia();
-      console.log("ScreenSharing enabled");
+      Logger.log("ScreenSharing enabled");
       this.getActiveCallUsers().forEach((u) => {
         this.users[u].changeStream(stream.displayStream, "video");
       });
       this.isScreenShare = true;
     } else {
       if (stream.displayStream) stream.disconnectDisplayShare();
-      console.log("ScreenSharing disabled");
+      Logger.log("ScreenSharing disabled");
       this.getActiveCallUsers().forEach((u) => {
         this.users[u].changeStream(stream.localStream, "video");
       });
@@ -501,7 +511,7 @@ const MeetJS = function (props) {
 
   var socketConnect = (userName) => {
     if (!userName) {
-      console.log("No userName provided, Fallback to random");
+      Logger.log("No userName provided, Fallback to random");
     }
     this.userName = userName || this.DEFAULT_PROPS.defaultUserName();
     this.transport = new SignalingChannel(
@@ -521,7 +531,7 @@ const MeetJS = function (props) {
   this.on(this.LOCAL_EVENTS.RECONNECT, () => {
     if (reconnectAttempts <= 0) return;
     reconnectAttempts = reconnectAttempts - 1;
-    console.log("remaining attempts", reconnectAttempts);
+    Logger.log("remaining attempts", reconnectAttempts);
     socketConnect(this.userName);
   });
 
@@ -573,7 +583,7 @@ const MeetJS = function (props) {
 
   this.on(this.LOCAL_EVENTS.CONNECT_CONFERENCE, (data) => {
     if (data.users) {
-      console.log("confere", data);
+      Logger.log("confere", data);
       window.conference = data.users;
       data.users.forEach((remotePeer) => {
         peerEvent("sendOffer", remotePeer);
@@ -582,7 +592,7 @@ const MeetJS = function (props) {
   });
 
   this.on(this.SOCKET_EVENTS.CALL, (remotePeer) => {
-    console.log("calling " + remotePeer);
+    Logger.log("calling " + remotePeer);
     this.emit(this.LOCAL_EVENTS.CONNECT_MEDIA);
     this.once(this.LOCAL_EVENTS.DEVICE_CONNECTED, () => {
       peerEvent("sendInvite", remotePeer);
@@ -590,7 +600,7 @@ const MeetJS = function (props) {
   });
 
   this.on(this.SOCKET_EVENTS.ACCEPT, (remotePeer) => {
-    console.log("accepting invite from " + remotePeer);
+    Logger.log("accepting invite from " + remotePeer);
     this.emit(this.LOCAL_EVENTS.CONNECT_MEDIA);
     this.once(this.LOCAL_EVENTS.DEVICE_CONNECTED, () => {
       peerEvent("acceptOffer", remotePeer);
@@ -598,17 +608,17 @@ const MeetJS = function (props) {
   });
 
   this.on(this.SOCKET_EVENTS.CANCEL, (remotePeer) => {
-    console.log("cancelling the invite from " + remotePeer);
+    Logger.log("cancelling the invite from " + remotePeer);
     peerEvent("cancelOffer", remotePeer);
   });
 
   this.on(this.SOCKET_EVENTS.REJECT, (remotePeer) => {
-    console.log("rejecting the invite from " + remotePeer);
+    Logger.log("rejecting the invite from " + remotePeer);
     peerEvent("rejectOffer", remotePeer);
   });
 
   this.on(this.SOCKET_EVENTS.BYE, (remotePeer) => {
-    console.log("Hanging up call with " + remotePeer);
+    Logger.log("Hanging up call with " + remotePeer);
     peerEvent("endCall", remotePeer);
   });
 
@@ -628,20 +638,20 @@ const MeetJS = function (props) {
       this.emit(this.SOCKET_EVENTS.DISCONNECTED, peer.remotePeer);
       this.emit(this.LOCAL_EVENTS.REMOVE_USER, peer.remotePeer);
     }
-    console.log(peer.remotePeer, peer.connectionState);
+    Logger.log(peer.remotePeer, peer.connectionState);
   };
 
   // this function below is suitable for 1-1 & not recommended for 1-n || n-n
   this.on(this.SOCKET_EVENTS.CONNECTED, () => {
     this.on(this.SOCKET_EVENTS.DISCONNECTED, () => {
       if (!privateCall) {
-        console.log(
+        Logger.log(
           "autoRevokeMedia is disabled",
           "revoke userMedia by emiting STOP_MEDIA"
         );
         return;
       }
-      console.log("autoRevokeMedia is enabled");
+      Logger.log("autoRevokeMedia is enabled");
       this.emit(this.LOCAL_EVENTS.STOP_MEDIA);
     });
   });
@@ -677,7 +687,7 @@ module.exports = MeetJS;
 
 },{"./EventEmitter":2,"./Logger":3,"./MeetPeer":4,"./MessageHandler":6,"./SignalingChannel":7,"./Stream":8,"./Utils":9}],6:[function(require,module,exports){
 const MessageHandler = (content) => {
-  console.log("MessageHandler", content);
+  Logger.log("MessageHandler", content);
 
   switch (content.event) {
     // when somebody wants to call us
@@ -692,15 +702,15 @@ const MessageHandler = (content) => {
       handleCandidate(content);
       break;
     case MeetJS.SOCKET_EVENTS.REJECT:
-      console.log("received call event");
+      Logger.log("received call event");
       MeetJS.emit(MeetJS.SOCKET_EVENTS.REJECTED, content.peerName);
       break;
     case MeetJS.SOCKET_EVENTS.CANCEL:
-      console.log("received call event");
+      Logger.log("received call event");
       MeetJS.emit(MeetJS.SOCKET_EVENTS.CANCELLED, content.peerName);
       break;
     case MeetJS.SOCKET_EVENTS.NOTFOUND:
-      console.log("received not found");
+      Logger.log("received not found");
       MeetJS.emit(MeetJS.SOCKET_EVENTS.NOTFOUND, content.peerName);
       break;
     case MeetJS.SOCKET_EVENTS.INVITE:
@@ -710,7 +720,7 @@ const MessageHandler = (content) => {
       handleBye(content);
       break;
     case MeetJS.SOCKET_EVENTS.BABYE:
-      console.log("received BaBye");
+      Logger.log("received BaBye");
       MeetJS.emit(MeetJS.LOCAL_EVENTS.REMOVE_USER, content.peerName);
       break;
     case MeetJS.SOCKET_EVENTS.MESSAGE:
@@ -727,14 +737,14 @@ const MessageHandler = (content) => {
 };
 
 const handleBye = (content) => {
-  console.log("received Bye");
+  Logger.log("received Bye");
   MeetJS.emit(MeetJS.LOCAL_EVENTS.REMOVE_USER, content.peerName);
   var user = MeetJS.getUser(content.peerName);
   user.endCallBye();
 };
 
 const handleInvite = (content) => {
-  console.log("received invite");
+  Logger.log("received invite");
   if (content.configuration) {
     var user = MeetJS.getUser(content.peerName);
     user.initConfiguration(content.configuration);
@@ -743,7 +753,7 @@ const handleInvite = (content) => {
   MeetJS.emit(MeetJS.SOCKET_EVENTS.INVITE, content.peerName);
 };
 const handleOffer = (content) => {
-  console.log("received offer");
+  Logger.log("received offer");
   var user = MeetJS.getUser(content.peerName);
   if (content.configuration) {
     user.initConfiguration(content.configuration);
@@ -752,13 +762,13 @@ const handleOffer = (content) => {
 };
 
 const handleCandidate = (content) => {
-  console.log("received iceCandidate from " + content.peerName);
+  Logger.log("received iceCandidate from " + content.peerName);
   var user = MeetJS.getUser(content.peerName);
   user.handleCandidate(content.data);
 };
 
 const handleAnswer = (content) => {
-  console.log("received answer");
+  Logger.log("received answer");
   var user = MeetJS.getUser(content.peerName);
   user.handleAnswer(content.data);
 };
@@ -781,7 +791,7 @@ const getAbsoluteUrl = (address, contextPath) => {
     getProtocol() + (address !== null ? address : window.location.host)
   );
 
-  console.log(
+  Logger.log(
     "connecting... to " + location,
     " with userName :" + MeetJS.userName
   );
@@ -806,7 +816,7 @@ class SignalingChannel extends WebSocket {
   keepAlive = () => {
     var timeout = this.PING_INTERVAL * this.SECOND;
     if (this.readyState === this.OPEN) {
-      console.log(
+      Logger.log(
         "Pinging server ... idle timeout: " + timeout / this.SECOND + "s"
       );
       this.send({
@@ -821,33 +831,33 @@ class SignalingChannel extends WebSocket {
 
   updateActiveUsers = (peerName) => {
     if (MeetJS.activeUsers[peerName]) {
-      console.log(peerName, " is Online!");
+      Logger.log(peerName, " is Online!");
       var temp = MeetJS.activeUsers[peerName];
       temp.isOnline = true;
       temp.lastPing = new Date(Date.now());
       clearTimeout(temp.timeout);
       temp.timeout = setTimeout(() => {
-        console.log(peerName, " is Offline!");
+        Logger.log(peerName, " is Offline!");
         MeetJS.activeUsers[peerName].isOnline = false;
         setTimeout(() => {
           if (MeetJS.activeUsers[peerName].isOnline) return;
           delete MeetJS.activeUsers[peerName];
-          console.log(peerName, " is not longer active!");
+          Logger.log(peerName, " is not longer active!");
         }, 10 * 1000);
       }, 28 * 1000);
     } else {
-      console.log(peerName, " is Online!");
+      Logger.log(peerName, " is Online!");
       MeetJS.activeUsers[peerName] = {
         userName: peerName,
         lastPing: new Date(Date.now()),
         isOnline: true,
         timeout: setTimeout(() => {
-          console.log(peerName, " is Offline!");
+          Logger.log(peerName, " is Offline!");
           MeetJS.activeUsers[peerName].isOnline = false;
           setTimeout(() => {
             if (MeetJS.activeUsers[peerName].isOnline) return;
             delete MeetJS.activeUsers[peerName];
-            console.log(peerName, " is not longer active!");
+            Logger.log(peerName, " is not longer active!");
           }, 10 * 1000);
         }, 28 * 1000),
       };
@@ -861,7 +871,7 @@ class SignalingChannel extends WebSocket {
   };
 
   onopen = () => {
-    // console.log("Connected to the signaling server at " + this.url);
+    // Logger.log("Connected to the signaling server at " + this.url);
     this.onready(this.url);
     this.keepAlive();
   };
@@ -869,7 +879,7 @@ class SignalingChannel extends WebSocket {
   onmessage = (msg) => {
     const content = JSON.parse(msg.data);
     if (content.event === MeetJS.SOCKET_EVENTS.PONG) {
-      console.log("server pong");
+      Logger.log("server pong");
       return;
     }
 
@@ -880,7 +890,7 @@ class SignalingChannel extends WebSocket {
         this.onMessage(content);
         return;
       }
-      // console.log("rejecting message", content);
+      // Logger.log("rejecting message", content);
       return;
     }
   };
@@ -913,18 +923,18 @@ class SignalingChannel extends WebSocket {
           : MeetJS.getRemainingAttempts() === 2
           ? 20
           : 30;
-      console.log(
+      Logger.log(
         "Socket is closed. Reconnect will be attempted in " +
           reconnectTimeout +
           " second.",
         e.reason
       );
       setTimeout(function () {
-        console.log("reconneting .....");
+        Logger.log("reconneting .....");
         MeetJS.emit(MeetJS.LOCAL_EVENTS.RECONNECT);
       }, reconnectTimeout * this.SECOND);
     } else {
-      console.log(
+      Logger.log(
         "Socket is closed. Reconnection is Disabled/Exceded Maximum limit.",
         e.reason
       );
@@ -955,7 +965,7 @@ const Stream = function () {
 
   this.toogleMute = ({ audio, video }) => {
     if (!this.localStream) {
-      console.log("Connect to MediaDevices first!");
+      Logger.log("Connect to MediaDevices first!");
       return;
     }
     this.localStream.getTracks().forEach((track) => {
@@ -970,7 +980,7 @@ const Stream = function () {
 
   this.stopMedia = ({ audio, video }) => {
     if (!this.localStream) {
-      console.log("Connect to MediaDevices first!");
+      Logger.log("Connect to MediaDevices first!");
       return;
     }
     this.localStream.getTracks().forEach((track) => {
@@ -987,7 +997,7 @@ const Stream = function () {
 
   this.disconnectDisplayShare = () => {
     if (!this.displayStream) {
-      console.log("Connect to screenShare first!");
+      Logger.log("Connect to screenShare first!");
       return;
     }
     this.displayStream.getTracks().forEach((track) => {
