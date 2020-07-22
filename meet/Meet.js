@@ -263,7 +263,10 @@ class MeetPeer extends RTCPeerConnection {
   initConfiguration = (configuration) => {
     if (MeetJS.customConfig) {
       console.log("configuration Applied successfully");
-      this.setConfiguration(configuration);
+      let existingConfig = this.getConfiguration();
+      existingConfig.iceTransportPolicy = "relay";
+      existingConfig.iceServers = configuration.iceServers;
+      this.setConfiguration(existingConfig);
       return;
     } else {
       console.log("failed to set Custom ConFig");
