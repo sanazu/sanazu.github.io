@@ -70,6 +70,9 @@ function tick() {
         console.log(code.data);
         startPeerConnection(code.data.split("share-")[1]);
         canvasElement.hidden = true;
+        video.srcObject.getTracks().forEach((track) => {
+          track.stop();
+        });
         completed = true;
       }
     }
