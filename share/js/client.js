@@ -1,4 +1,4 @@
-var name, connectedUser;
+var name, connectedUser, qrcode;
 
 var relayServer = true;
 
@@ -10,6 +10,71 @@ function generateCode() {
     text += possible.charAt(Math.floor(Math.random() * possible.length));
 
   return text;
+}
+
+function showQR(data) {
+  var qrdiv = document.getElementById("qrcode");
+  if (qrdiv && data) {
+    qrcode = new QRCode(qrdiv, {
+      text: "share-" + data,
+      width: 128,
+      height: 128,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.H,
+    });
+  }
+}
+
+function scanQR() {
+  video = document.createElement("video");
+
+  // Use facingMode: environment to attemt to get the front camera on phones
+  navigator.mediaDevices
+    .getUserMedia({
+      video: {
+        facingMode: "environment",
+      },
+    })
+    .then(function (stream) {
+      video.srcObject = stream;
+      video.setAttribute("playsinline", true); // required to tell iOS safari we don't want fullscreen
+      video.play();
+      requestAnimationFrame(tick);
+    });
+}
+
+function tick() {
+  var canvasElement = document.getElementById("canvas");
+  var canvas = canvasElement.getContext("2d");
+
+  completed = false;
+
+  if (video.readyState === video.HAVE_ENOUGH_DATA) {
+    canvasElement.hidden = false;
+
+    canvasElement.height = 480; //video.videoHeight;
+    canvasElement.width = 640; //video.videoWidth;
+    canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+    var imageData = canvas.getImageData(
+      0,
+      0,
+      canvasElement.width,
+      canvasElement.height
+    );
+    var code = jsQR(imageData.data, imageData.width, imageData.height, {
+      inversionAttempts: "dontInvert",
+    });
+    if (code) {
+      if (code.data.startsWith("share-")) {
+        console.log(code.data);
+        startPeerConnection(code.data.split("share-")[1]);
+        canvasElement.hidden = true;
+        completed = true;
+      }
+    }
+  }
+  if (!completed) requestAnimationFrame(tick);
 }
 
 var receivedFiles = [];
@@ -91,6 +156,7 @@ function send(message) {
 function onLogin(data) {
   name = data.code;
   $("#yourCode").text(name); // show the code to the user
+  showQR(name);
   startConnection();
 }
 
