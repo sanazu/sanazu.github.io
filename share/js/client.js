@@ -291,6 +291,10 @@ function hasFileApi() {
 function startPeerConnection(user) {
   connectedUser = user;
 
+  if (yourConnection.connectionState === "failed") {
+    setupPeerConnection();
+  }
+
   // Begin the offer
   yourConnection.createOffer(
     function (offer) {
