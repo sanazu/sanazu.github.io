@@ -23,6 +23,10 @@ function showQR(data) {
       colorLight: "#ffffff",
       correctLevel: QRCode.CorrectLevel.H,
     });
+    setTimeout(() => {
+      console.log("displ");
+      document.getElementById("qrcode").children[1].style.display = "";
+    }, 0.01 * 1000);
   }
 }
 
@@ -37,6 +41,7 @@ function scanQR() {
       },
     })
     .then(function (stream) {
+      localStream = stream;
       video.srcObject = stream;
       video.setAttribute("playsinline", true); // required to tell iOS safari we don't want fullscreen
       video.play();
@@ -70,9 +75,11 @@ function tick() {
         console.log(code.data);
         startPeerConnection(code.data.split("share-")[1]);
         canvasElement.hidden = true;
-        video.srcObject.getTracks().forEach((track) => {
+        localStream.getTracks().forEach((track) => {
           track.stop();
         });
+        localStream = null;
+        video.srcObject = null;
         completed = true;
       }
     }
@@ -249,6 +256,7 @@ function openDataChannel() {
       .text("Connected to " + connectedUser);
 
     $("#otherDeviceCode").addClass("hidden");
+    $("#scan").addClass("hidden");
 
     $("#otherDeviceCode").val("").attr("disabled", "disabled");
     $("#files-box").removeClass("hidden");
@@ -264,6 +272,7 @@ function openDataChannel() {
       .text("Connect");
 
     $("#otherDeviceCode").removeClass("hidden");
+    $("#scan").removeClass("hidden");
 
     $("#otherDeviceCode").val("").removeAttr("disabled");
 
