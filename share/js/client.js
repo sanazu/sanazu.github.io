@@ -102,6 +102,14 @@ if (!relayServer) {
 
 connection.onopen = function () {
   console.log("Connected");
+  window.pingTime = setInterval(() => {
+    connection.send(
+      JSON.stringify({
+        type: "ping",
+        from: name,
+      })
+    );
+  }, 29 * 1000);
   if (relayServer) {
     console.log("relaying ..........");
     onLogin({ code: generateCode() });
@@ -109,6 +117,10 @@ connection.onopen = function () {
   }
   // get a code for the user after connecting to the server
   send({ type: "login" });
+};
+
+connection.onclose = (e) => {
+  console.log("socket closing .................", e);
 };
 
 // Handle all messages through this callback
@@ -160,6 +172,7 @@ function send(message) {
     message.name = connectedUser;
   }
 
+  console.log("sending message", JSON.stringify(message));
   connection.send(JSON.stringify(message));
 }
 
@@ -186,6 +199,7 @@ function startConnection() {
 }
 
 function setupPeerConnection() {
+  receivedFiles = [];
   var configuration = {
     iceServers: [{ url: "stun:stun.l.google.com:19302" }],
   };
@@ -243,6 +257,8 @@ function openDataChannel() {
       var percentage = Math.floor(
         (currentFileSize / currentFileMeta.size) * 100
       );
+
+      console.log(currentFileMeta.name, percentage);
     }
   };
 
@@ -313,8 +329,8 @@ function showFile(currentFileMeta, currentFile) {
       "</strong></p>" +
       '<div class="progress">' +
       '<div class="progress-bar progress-bar-striped" role="progressbar"' +
-      ' aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"' +
-      ' style="width: 0%"><span class="sr-only">0% Complete</span></div>' +
+      ' aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"' +
+      ' style="width: 100%"><span class="sr-only">0% Complete</span></div>' +
       "</div>" +
       '<button onclick="downloadFile(' +
       id +
