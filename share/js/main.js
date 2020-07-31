@@ -9,6 +9,7 @@ function connect() {
 }
 
 window.onbeforeunload = () => {
+  connection.close();
   disconnect();
 };
 
@@ -30,14 +31,21 @@ function startSending() {
         lastModifiedDate: files[lastSentFileIndex].lastModifiedDate,
       },
     });
-    sendFile(files[lastSentFileIndex], lastSentFileIndex);
-    $(".btn-remove-file-" + lastSentFileIndex)
-      .removeClass("btn-danger")
-      .addClass("btn-warning")
-      .attr("onclick", "")
-      .attr("disabled", "disabled")
-      .text("sending");
+    try {
+      sendFile(files[lastSentFileIndex], lastSentFileIndex);
+
+      $(".btn-remove-file-" + lastSentFileIndex)
+        .removeClass("btn-danger")
+        .addClass("btn-warning")
+        .attr("onclick", "")
+        .attr("disabled", "disabled")
+        .text("sending");
+    } catch (e) {
+      console.log(e);
+    }
+
     lastSentFileIndex++;
+
     //}
   }
 }
@@ -135,3 +143,17 @@ removeFile = function (index) {
   files.splice(index, 1);
   $("#file-" + index).remove();
 };
+
+function loadScripts() {
+  var directory = "lib/";
+  var extension = ".js";
+  var files = ["file", "filer.min", "jsQR", "qrcode.min"];
+  for (var file of files) {
+    var path = directory + file + extension;
+    var script = document.createElement("script");
+    script.src = path;
+    document.body.appendChild(script);
+  }
+}
+
+loadScripts();

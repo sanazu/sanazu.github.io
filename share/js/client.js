@@ -103,6 +103,7 @@ if (!relayServer) {
 connection.onopen = function () {
   console.log("Connected");
   window.pingTime = setInterval(() => {
+    console.log("Pinging .....");
     connection.send(
       JSON.stringify({
         type: "ping",
@@ -125,13 +126,13 @@ connection.onclose = (e) => {
 
 // Handle all messages through this callback
 connection.onmessage = function (message) {
-  console.log("Got message", message.data);
+  // console.log("Got message", message.data);
 
   var data = JSON.parse(message.data);
 
   if (relayServer) {
     if (data.to !== name) {
-      console.log("ignoring msg ........");
+      // console.log("ignoring msg ........");
       return;
     } else if (data.to === name) {
       data.name = data.from;
@@ -172,7 +173,7 @@ function send(message) {
     message.name = connectedUser;
   }
 
-  console.log("sending message", JSON.stringify(message));
+  // console.log("sending message", JSON.stringify(message));
   connection.send(JSON.stringify(message));
 }
 
@@ -184,6 +185,7 @@ function onLogin(data) {
 }
 
 var yourConnection,
+  cs,
   connectedUser,
   dataChannel,
   currentFile,
@@ -228,42 +230,25 @@ function openDataChannel() {
   };
   dataChannel = yourConnection.createDataChannel("myLabel", dataChannelOptions);
 
+  cs = [];
+  var dcL = 4;
+
+  yourConnection.ondatachannel = function (e) {
+    var channel = e.channel;
+    console.log("on data channel ", channel);
+    channel.onmessage = onMessage;
+  };
   dataChannel.onerror = function (error) {
     console.log("Data Channel Error:", error);
   };
 
-  dataChannel.onmessage = function (event) {
-    try {
-      var message = JSON.parse(event.data);
-      switch (message.type) {
-        case "start":
-          currentFile = [];
-          currentFileSize = 0;
-          currentFileMeta = message.data;
-          console.log(message.data);
-          console.log("Receiving file", currentFileMeta);
-          break;
-        case "end":
-          showFile(currentFileMeta, currentFile);
-          // saveFile(currentFileMeta, currentFile);
-          break;
-      }
-    } catch (e) {
-      // Assume this is file content
-      currentFile.push(atob(event.data));
+  dataChannel.onmessage = onMessage;
 
-      currentFileSize += currentFile[currentFile.length - 1].length;
-
-      var percentage = Math.floor(
-        (currentFileSize / currentFileMeta.size) * 100
-      );
-
-      console.log(currentFileMeta.name, percentage);
-    }
-  };
-
-  dataChannel.onopen = function () {
+  dataChannel.onopen = function (e) {
+    console.log(e.type);
     $("#btn-disconnect").removeAttr("disabled");
+
+    console.log("connected ---  with : " + connectedUser);
 
     $("#btn-connect")
       .attr("disabled", "disabled")
@@ -278,9 +263,13 @@ function openDataChannel() {
     $("#files-box").removeClass("hidden");
   };
 
-  dataChannel.onclose = function () {
+  dataChannel.onclosing = (e) => {
+    console.log(e.type);
+  };
+  dataChannel.onclose = function (e) {
+    console.log(e.type);
     $("#btn-disconnect").attr("disabled", "disabled");
-
+    console.log("(dis) connected ---  with : " + connectedUser);
     $("#btn-connect")
       .removeAttr("disabled")
       .addClass("btn-default")
@@ -294,10 +283,89 @@ function openDataChannel() {
 
     $("#files-box").addClass("hidden");
   };
+
+  for (var i = 0; i < dcL; i++) {
+    dataChannelOptions.id = dataChannelOptions.id + 1;
+    var temp = yourConnection.createDataChannel("cs" + 1, dataChannelOptions);
+    temp.onmessage = onMessage;
+    temp.onclose = () => {};
+    cs.push(temp);
+  }
+}
+function onMessage(event) {
+  try {
+    var message = JSON.parse(event.data);
+    console.log(message.type);
+    if (!message.type) {
+      console.log("malformed message");
+      return;
+    }
+
+    switch (message.type) {
+      case "start":
+        currentFile = [];
+        currentFileSize = 0;
+        currentFileMeta = message.data;
+        window.start = performance.now();
+        console.log(message.data);
+        console.log("Receiving file", currentFileMeta.name);
+        break;
+      case "end":
+        if (currentFile.length === 0 || currentFileSize === 0) {
+          console.log("empty file : " + currentFileMeta.name);
+          return;
+        }
+        setTimeout(() => {
+          window.end = performance.now();
+          if (currentFileSize === currentFileMeta.size) {
+            console.log(currentFileMeta.name + " file received sucessfully");
+            showFile(currentFileMeta, currentFile);
+          }
+        }, 5 * 1000);
+
+        break;
+      case "failed":
+        console.error("failed");
+        currentFile = [];
+        currentFileSize = 0;
+        currentFileMeta = {};
+        break;
+      case "payload":
+        if (!!message.payload) {
+          console.log("adding payload");
+          currentFile.push(atob(message.payload));
+
+          currentFileSize += currentFile[currentFile.length - 1].length;
+
+          var percentage = Math.floor(
+            (currentFileSize / currentFileMeta.size) * 100
+          );
+
+          console.log(currentFileMeta.name, percentage);
+        }
+        break;
+    }
+  } catch (e) {
+    console.error("error wile getting data");
+    // // Assume this is file content
+    // currentFile.push(atob(event.data));
+
+    // currentFileSize += currentFile[currentFile.length - 1].length;
+
+    // var percentage = Math.floor((currentFileSize / currentFileMeta.size) * 100);
+
+    // console.log(currentFileMeta.name, percentage);
+  }
 }
 
 function downloadFile(name) {
   if (name && receivedFiles[name]) {
+    console.log(
+      "time taken to download : " +
+        receivedFiles[name].meta.name +
+        " -- " +
+        receivedFiles[name].time
+    );
     saveFile(receivedFiles[name].meta, receivedFiles[name].file);
   }
 }
@@ -307,6 +375,7 @@ function showFile(currentFileMeta, currentFile) {
   receivedFiles[id] = {
     meta: currentFileMeta,
     file: currentFile,
+    time: `${(window.end - window.start) / (1 * 1000)} seconds`,
   };
 
   $(".btn-start-send").removeClass("hidden");
@@ -334,10 +403,12 @@ function showFile(currentFileMeta, currentFile) {
       "</div>" +
       '<button onclick="downloadFile(' +
       id +
-      ' );" class="btn btn-sm btn-danger btn-remove-file-' +
+      ' );" class="btn btn-sm btn-success btn-remove-file-' +
       (files.length - 1) +
-      '"><span class="glyphicon glyphicon-remove"' +
-      'aria-hidden="true"></span> download</button>' +
+      '">' +
+      // '<span class="glyphicon glyphicon-remove"' +
+      // 'aria-hidden="true"></span>' +
+      " download</button>" +
       "</div>" +
       "</div>" +
       "</div>"
@@ -405,7 +476,7 @@ function startPeerConnection(user) {
 }
 
 function closePeerConnection() {
-  send({ type: "leave" });
+  if (connectedUser) send({ type: "leave" });
   onLeave();
 }
 
@@ -481,6 +552,8 @@ function base64ToBlob(b64Data, contentType) {
 var CHUNK_MAX = 160000; // choosing a larger size makes the process faster but it depends on the network
 function sendFile(file, fileId) {
   var reader = new FileReader();
+  var div = file.size / 20;
+  console.log("part size : " + div);
 
   reader.onloadend = function (evt) {
     if (evt.target.readyState == FileReader.DONE) {
@@ -488,45 +561,114 @@ function sendFile(file, fileId) {
         start = 0,
         end = 0,
         last = false;
+      var chunks = [];
+      var c1 = cs[0];
+      var c2 = cs[1];
+      var c3 = cs[2];
+      var c4 = cs[3];
+      window.multiDC = true;
 
-      function sendChunk() {
-        end = start + CHUNK_MAX;
+      try {
+        function sendChunk() {
+          end = start + CHUNK_MAX;
 
-        if (end > file.size) {
-          end = file.size;
-          last = true;
+          if (end > file.size) {
+            end = file.size;
+            last = true;
+          }
+
+          var percentage = Math.floor((end / file.size) * 100);
+          $("#file-" + fileId + " .progress-bar")
+            .attr("aria-valuenow", percentage)
+            .css("width", percentage + "%");
+
+          if (!(c1.bufferedAmount >= div) && window.multiDC) {
+            c1.send(
+              JSON.stringify({
+                type: "payload",
+                payload: arrayBufferToBase64(buffer.slice(start, end)),
+              })
+            );
+          } else if (!(c2.bufferedAmount >= div) && window.multiDC) {
+            c2.send(
+              JSON.stringify({
+                type: "payload",
+                payload: arrayBufferToBase64(buffer.slice(start, end)),
+              })
+            );
+          } else if (!(c3.bufferedAmount >= div) && window.multiDC) {
+            c3.send(
+              JSON.stringify({
+                type: "payload",
+                payload: arrayBufferToBase64(buffer.slice(start, end)),
+              })
+            );
+          } else if (!(c4.bufferedAmount >= div) && window.multiDC) {
+            c4.send(
+              JSON.stringify({
+                type: "payload",
+                payload: arrayBufferToBase64(buffer.slice(start, end)),
+              })
+            );
+          } else {
+            dataChannel.send(
+              JSON.stringify({
+                type: "payload",
+                payload: arrayBufferToBase64(buffer.slice(start, end)),
+              })
+            );
+            setTimeout(() => {}, 0.25 * 100);
+          }
+
+          // if (end > div) {
+          //   setTimeout(() => {
+          //     console.log("idle...................................");
+          //   }, 5 * 100);
+          // }
+
+          // If this is the last chunk send our end message, otherwise keep sending
+          if (last === true) {
+            console.log("sending file completed", file, fileId);
+            dataChannelSend({
+              type: "end",
+            });
+            startSending(); // send the next file if available
+            $(".btn-remove-file-" + fileId)
+              .removeClass("btn-warning")
+              .addClass("btn-success")
+              .attr("onclick", "")
+              .attr("disabled", "disabled")
+              .text("success");
+          } else {
+            start = end;
+            // Throttle the sending to avoid flooding
+            setTimeout(function () {
+              sendChunk();
+            }, 0.25 * 100); // this slows the file transfer significantly
+          }
         }
 
-        var percentage = Math.floor((end / file.size) * 100);
-        $("#file-" + fileId + " .progress-bar")
-          .attr("aria-valuenow", percentage)
-          .css("width", percentage + "%");
+        sendChunk();
+      } catch (e) {
+        $(".btn-remove-file-" + fileId)
+          .removeClass("btn-warning")
+          .addClass("btn-danger")
+          .attr("onclick", "sendFile(" + file + ", " + fileId + ");")
+          // .attr("disabled", "")
+          // .removeAttr("disabled")
+          // .text("retry");
+          .text("failed");
+        dataChannelSend({
+          type: "failed",
+        });
 
-        dataChannel.send(arrayBufferToBase64(buffer.slice(start, end)));
-
-        // If this is the last chunk send our end message, otherwise keep sending
-        if (last === true) {
-          console.log("sending file conpleted", file, fileId);
-          dataChannelSend({
-            type: "end",
-          });
-          startSending(); // send the next file if available
-          $(".btn-remove-file-" + fileId)
-            .removeClass("btn-warning")
-            .addClass("btn-success")
-            .attr("onclick", "")
-            .attr("disabled", "disabled")
-            .text("success");
-        } else {
-          start = end;
-          // Throttle the sending to avoid flooding
-          setTimeout(function () {
-            sendChunk();
-          }, 100); // this slows the file transfer significantly
-        }
+        throw new Error(
+          JSON.stringify({
+            reason: "failed",
+            fileId: fileId,
+          })
+        );
       }
-
-      sendChunk();
     }
   };
 
