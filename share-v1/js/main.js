@@ -21,32 +21,30 @@ var lastSentFileIndex = 0;
 function startSending() {
   if (files.length > 0 && lastSentFileIndex < files.length) {
     //for(i = 0; i < files.length; i++) {
-    // dataChannelSend({
-    //   type: "start",
-    //   data: {
-    //     name: files[lastSentFileIndex].name,
-    //     size: files[lastSentFileIndex].size,
-    //     type: files[lastSentFileIndex].type,
-    //     lastModified: files[lastSentFileIndex].lastModified,
-    //     lastModifiedDate: files[lastSentFileIndex].lastModifiedDate,
-    //   },
-    // });
+    dataChannelSend({
+      type: "start",
+      data: {
+        name: files[lastSentFileIndex].name,
+        size: files[lastSentFileIndex].size,
+        type: files[lastSentFileIndex].type,
+        lastModified: files[lastSentFileIndex].lastModified,
+        lastModifiedDate: files[lastSentFileIndex].lastModifiedDate,
+      },
+    });
     try {
-      // sendFile(files[lastSentFileIndex], lastSentFileIndex);
+      sendFile(files[lastSentFileIndex], lastSentFileIndex);
 
-      shareJS.startShare(connectedUser, files);
-
-      //   $(".btn-remove-file-" + lastSentFileIndex)
-      //     .removeClass("btn-danger")
-      //     .addClass("btn-warning")
-      //     .attr("onclick", "")
-      //     .attr("disabled", "disabled")
-      //     .text("sending");
+      $(".btn-remove-file-" + lastSentFileIndex)
+        .removeClass("btn-danger")
+        .addClass("btn-warning")
+        .attr("onclick", "")
+        .attr("disabled", "disabled")
+        .text("sending");
     } catch (e) {
       console.log(e);
     }
 
-    // lastSentFileIndex++;
+    lastSentFileIndex++;
 
     //}
   }
@@ -149,14 +147,7 @@ removeFile = function (index) {
 function loadScripts() {
   var directory = "lib/";
   var extension = ".js";
-  var files = [
-    "file",
-    "idb.filesystem.min",
-    "filer.min",
-    "jsQR",
-    "qrcode.min",
-    "Share",
-  ];
+  var files = ["file", "filer.min", "jsQR", "qrcode.min"];
   for (var file of files) {
     var path = directory + file + extension;
     var script = document.createElement("script");
