@@ -1,6 +1,6 @@
 var name, connectedUser, qrcode;
 
-var relayServer = true;
+var relayServer = false;
 window.initiator = false;
 
 function generateCode() {
@@ -127,7 +127,7 @@ connection.onclose = (e) => {
 
 // Handle all messages through this callback
 connection.onmessage = function (message) {
-  // console.log("Got message", message.data);
+  console.log("Got message", message.data);
 
   var data = JSON.parse(message.data);
 
@@ -174,7 +174,7 @@ function send(message) {
     message.name = connectedUser;
   }
 
-  // console.log("sending message", JSON.stringify(message));
+  console.log("sending message", JSON.stringify(message));
   connection.send(JSON.stringify(message));
 }
 
@@ -187,6 +187,8 @@ function onLogin(data) {
     encoded: true,
     channels: 5,
     customFileId: true,
+    // maxParts: 1000,
+    // chunkSize: 160000,
   });
 
   shareJS.onProgress = (e) => {
@@ -281,7 +283,18 @@ function startConnection() {
 function setupPeerConnection() {
   receivedFiles = [];
   var configuration = {
-    iceServers: [{ url: "stun:stun.l.google.com:19302" }],
+    // iceTransportPolicy: "relay",
+    iceServers: [
+      {
+        url: "stun:stun.l.google.com:19302",
+      },
+
+      {
+        urls: ["turn:numb.viagenie.ca?transport=tcp"],
+        username: "normanarguet@gmail.com",
+        credential: "1ceCre4m007",
+      },
+    ],
   };
   yourConnection = new RTCPeerConnection(configuration, { optional: [] });
 

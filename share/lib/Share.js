@@ -11,10 +11,9 @@ var ShareJS = function (props) {
   this.autoCreatePeerId = props.autoCreatePeerId || false;
   this.customFileId = props.customFileId || false;
 
-  ShareJS.prototype.MAX_PARTS = props.maxParts || 100;
-
-  ShareJS.prototype.BLOCK_MTU =
-    ShareJS.prototype.CHUNK_MTU * ShareJS.prototype.MAX_PARTS;
+  this.MAX_PARTS = props.maxParts || this.MAX_PARTS;
+  this.CHUNK_MTU = props.chunkSize || this.CHUNK_MTU;
+  this.BLOCK_MTU = this.CHUNK_MTU * this.MAX_PARTS;
 
   if (this.autoCreatePeerId) {
     this.localId = ShareJS.prototype.generateId();
@@ -120,31 +119,36 @@ ShareJS.prototype.addDataChannel = function (peerId) {
       "ShareJS-Channel-" + (i + 1),
       ShareJS.prototype.dataChannelOptions
     );
-    temp.onopen = () => {
-      console.log(temp.label, " opened");
+    temp.onopen = function (e) {
+      console.log(this.label + " opened");
     };
     temp.onerror = shareJS.onError;
     temp.onmessage = shareJS.onMessage;
-    temp.onclose = onclose;
 
-    var onclose = function (e) {
-      var peer = shareJS.peers[peerId];
-      peer.channels.forEach((c, i) => {
-        if (c.id === this.id) {
-          peer.channels.slice(i, 1);
-        }
-      });
-      var temp = peer.conn.createDataChannel("ShareJS-Channel-" + i, {
-        negotiated: true,
-        id: this.id,
-      });
-      temp.onopen = () => {
-        console.log(this.label, this.id, " re opened");
-      };
-      temp.onerror = shareJS.onError;
-      temp.onmessage = shareJS.onMessage;
-      temp.onclose = onclose;
+    var onClose = function (e) {
+      try {
+        var { conn, channels } = shareJS.peers[peerId];
+        channels.forEach((c, index) => {
+          if (c.id === this.id) {
+            channels.splice(index, 1);
+          }
+        });
+        var temp1 = conn.createDataChannel(this.label, {
+          negotiated: true,
+          id: this.id,
+        });
+        temp1.onopen = () => {
+          console.log(this.label, this.id, " re opened");
+        };
+        temp1.onerror = shareJS.onError;
+        temp1.onmessage = shareJS.onMessage;
+        temp1.onclose = onClose;
+        channels.push(temp1);
+      } catch (e) {
+        console.log("peerConnection closed, can't reconnect " + this.label);
+      }
     };
+    temp.onclose = onClose;
 
     channels.push(temp);
   }
@@ -212,7 +216,7 @@ ShareJS.prototype.startShare = function (peerId, files) {
 
   files.forEach((file, i) => {
     var info = ShareJS.prototype.getFileInfo(file);
-    if (info.parts > ShareJS.prototype.MAX_PARTS) {
+    if (info.parts > shareJS.MAX_PARTS) {
       console.error(
         `File size is exceded the maximum supported amount : ${info.parts}`,
         `ignoring file : ${file.name}`
@@ -296,7 +300,7 @@ ShareJS.prototype.sendFile = function (peerId, peer, fileId) {
         last = false;
 
       for (var i = 0; i < info.parts; i++) {
-        end = start + ShareJS.prototype.CHUNK_MTU;
+        end = start + shareJS.CHUNK_MTU;
         chunks[i] = buffer.slice(start, end);
         start = end;
       }
@@ -331,40 +335,38 @@ ShareJS.prototype.sendFile = function (peerId, peer, fileId) {
         }
 
         chunks.forEach((chunk, i) => {
-          if (interval === shareJS.maxChannels * queueLayer) {
-            console.log("sleep start - " + new Date(Date.now()));
-            ShareJS.prototype.sleep(1 * 1000);
-            console.log("sleep stop - " + new Date(Date.now()));
-            interval = 0;
-          } else {
-            interval++;
-          }
-
           // Throttle the sending to avoid flooding
-          // setTimeout(function () {
-          sendChunkWithIndex(chunk, i);
+          setTimeout(function () {
+            if (interval === shareJS.maxChannels * queueLayer) {
+              console.log("sleep start - " + new Date(Date.now()));
+              ShareJS.prototype.sleep(1 * 1000);
+              console.log("sleep stop - " + new Date(Date.now()));
+              interval = 0;
+            } else {
+              interval++;
+            }
+            sendChunkWithIndex(chunk, i);
 
-          // If this is the last chunk send our end message, otherwise keep sending
-          if (i === info.parts - 1) {
-            console.log("sending file completed", file, fileId);
-            setTimeout(() => {
-              shareJS.dataChannelSend(
-                peerId,
-                shareJS.encode({
-                  type: "end",
-                  peerId: shareJS.localId,
-                  fileId,
-                  info,
-                })
-              );
-            }, 5 * 1000);
-          }
-          // }, 1 * 100); // this slows the file transfer significantly
-
-          if ((i + 1) % 50 === 0) {
-            console.log(`---------break at ${i + 1}---------`);
-            ShareJS.prototype.sleep(10 * 1000);
-          }
+            // If this is the last chunk send our end message, otherwise keep sending
+            if (i === info.parts - 1) {
+              console.log("sending file completed", file, fileId);
+              setTimeout(() => {
+                shareJS.dataChannelSend(
+                  peerId,
+                  shareJS.encode({
+                    type: "end",
+                    peerId: shareJS.localId,
+                    fileId,
+                    info,
+                  })
+                );
+              }, 5 * 1000);
+            }
+            if ((i + 1) % 100 === 0) {
+              console.log(`---------break at ${i + 1}---------`);
+              ShareJS.prototype.sleep(5 * 1000);
+            }
+          }, 1 * 100); // this slows the file transfer significantly
         });
       } catch (e) {
         shareJS.dataChannelSend(
@@ -418,13 +420,20 @@ ShareJS.prototype.dataChannelSend = function (peerId, msg) {
   } else {
     id = channels.length - 1;
   }
-  var send = () => {
+  var send = (channel, payload) => {
     try {
-      if (channels[id].readyState === "open") {
-        channels[id].send(msg);
+      if (
+        channel.readyState === "open" &&
+        channel.bufferedAmount <=
+          ShareJS.prototype.CHUNK_MTU * ShareJS.prototype.MAX_PARTS -
+            ShareJS.prototype.CHUNK_MTU
+      ) {
+        channel.send(msg);
       } else {
-        console.log("not open");
-        setTimeout(send, 1 * 100);
+        console.log("waiting for 5ms to send.....");
+        setTimeout(() => {
+          send(channel, payload);
+        }, 5 * 100);
       }
     } catch (e) {
       console.log("catched error" + e);
@@ -432,7 +441,7 @@ ShareJS.prototype.dataChannelSend = function (peerId, msg) {
     }
   };
   try {
-    send();
+    send(channels[id], msg);
   } catch (e) {
     throw new Error(e);
   }
@@ -537,8 +546,8 @@ ShareJS.prototype.getFileInfo = function (file) {
     name: file.name,
     size: file.size,
     type: file.type,
-    parts: Math.ceil(file.size / ShareJS.prototype.CHUNK_MTU),
-    blocks: Math.ceil(file.size / ShareJS.prototype.BLOCK_MTU),
+    parts: Math.ceil(file.size / shareJS.CHUNK_MTU),
+    blocks: Math.ceil(file.size / shareJS.BLOCK_MTU),
   };
 };
 
@@ -596,7 +605,7 @@ ShareJS.prototype.onMessage = function (e) {
   }
 };
 
-const handleComplete = function (msg) {
+const handleComplete = async function (msg) {
   var { fileId, peerId } = msg;
 
   if (!peerId) {
@@ -618,7 +627,7 @@ const handleComplete = function (msg) {
   delete outgoing[fileId];
 };
 
-const handlePayload = function (msg) {
+const handlePayload = async function (msg) {
   var { fileId, part, payload, peerId } = msg;
 
   if (!peerId) {
@@ -650,7 +659,7 @@ const handlePayload = function (msg) {
   });
 };
 
-const handleEndFile = function (msg) {
+const handleEndFile = async function (msg) {
   var { fileId, info, peerId } = msg;
 
   if (!peerId) {
@@ -667,24 +676,28 @@ const handleEndFile = function (msg) {
   var { incoming } = shareJS.peers[peerId];
 
   var makeFile = function (fileData) {
-    if (fileData.receivedParts === fileData.info.parts) {
-      fileData.file = ShareJS.prototype.base64ToBlob(
-        fileData.chunks,
-        fileData.info.type
-      );
-      console.log("file generated sucessfully");
-      shareJS.dataChannelSend(
-        peerId,
-        shareJS.encode({
-          peerId: shareJS.localId,
-          type: "complete",
-          fileId: fileId,
-        })
-      );
-    } else {
+    try {
+      if (fileData.receivedParts === fileData.info.parts) {
+        fileData.file = ShareJS.prototype.base64ToBlob(
+          fileData.chunks,
+          fileData.info.type
+        );
+        console.log("file generated sucessfully");
+        shareJS.dataChannelSend(
+          peerId,
+          shareJS.encode({
+            peerId: shareJS.localId,
+            type: "complete",
+            fileId: fileId,
+          })
+        );
+      } else {
+        throw new Error();
+      }
+    } catch (e) {
       setTimeout(() => {
         makeFile(fileData);
-      }, 10 * 1000);
+      }, 5 * 1000);
     }
   };
 
@@ -701,7 +714,7 @@ const handleEndFile = function (msg) {
   });
 };
 
-const handleFailedFile = function (msg) {
+const handleFailedFile = async function (msg) {
   var { fileId, info, peerId } = msg;
 
   if (!peerId) {
