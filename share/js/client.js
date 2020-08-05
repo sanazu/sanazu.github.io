@@ -190,7 +190,7 @@ async function onLogin(data) {
     fileSystem: true,
     // maxParts: 1000,
     // chunkSize: 160000,
-     chunkSize: 16000 * 10,
+     chunkSize: prompt("enter the chunksize multipleof 16000"),
   });
 
   shareJS.onProgress = async (e) => {
