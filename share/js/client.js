@@ -182,6 +182,11 @@ async function onLogin(data) {
   name = data.code;
   $("#yourCode").text(name); // show the code to the user
   showQR(name);
+  let siz = parseInt(prompt("enter the chunksize 0 to 10",1));
+    let chunkSize = undefined;
+	if(!isNaN(siz) && siz <=10 && siz >= 1){
+		chunkSize = 16000 * siz;
+	}
   await new ShareJS({
     localId: name,
     encoded: true,
@@ -190,7 +195,7 @@ async function onLogin(data) {
     fileSystem: true,
     // maxParts: 1000,
     // chunkSize: 160000,
-     chunkSize: prompt("enter the chunksize multipleof 16000"),
+     chunkSize ,
   });
 
   shareJS.onProgress = async (e) => {
