@@ -1,6 +1,6 @@
 var name, connectedUser, qrcode;
 
-var relayServer = true;
+var relayServer = false;
 window.initiator = false;
 
 function generateCode() {
@@ -178,21 +178,22 @@ function send(message) {
   connection.send(JSON.stringify(message));
 }
 
-function onLogin(data) {
+async function onLogin(data) {
   name = data.code;
   $("#yourCode").text(name); // show the code to the user
   showQR(name);
-  window.share = new ShareJS({
+  await new ShareJS({
     localId: name,
     encoded: true,
-    channels: 10,
+    channels: 20,
     customFileId: true,
+    fileSystem: true,
     // maxParts: 1000,
     // chunkSize: 160000,
-    chunkSize: 16000 * 2,
+    // chunkSize: 16000 * 9,
   });
 
-  shareJS.onProgress = (e) => {
+  shareJS.onProgress = async (e) => {
     var { peerId, fileId, info, progress, outgoing, incoming } = e;
     $("#file-" + fileId + " .progress-bar")
       .attr("aria-valuenow", progress)
@@ -203,62 +204,95 @@ function onLogin(data) {
     var { peerId, fileInfo, outgoing, incoming } = e;
     console.log(fileInfo);
     fileInfo.forEach((fi) => {
-      $("#files-list").append(
-        '<div class="col-sm-6 inline" id="file-' +
-          fi.fileId +
-          '">' +
-          '<div class="panel panel-default">' +
-          '<div class="panel-heading">' +
-          '<h3 class="panel-title dont-break-out">' +
-          fi.info.name +
-          "</h3>" +
-          "</div>" +
-          '<div class="panel-body">' +
-          "<p> type: <strong>" +
-          fi.info.type +
-          "</strong><br>size: <strong>" +
-          sizeOf(fi.info.size) +
-          "</strong></p>" +
-          '<div class="progress">' +
-          '<div class="progress-bar progress-bar-striped" role="progressbar"' +
-          ' aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"' +
-          ' style="width: 0%"><span class="sr-only">0% Complete</span></div>' +
-          "</div>" +
-          '<button  class="btn btn-sm btn-danger btn-remove-file-' +
-          fi.info.fileId +
-          '" disabled><span class="glyphicon glyphicon-remove"' +
-          'aria-hidden="true"></span> remove</button>' +
-          "</div>" +
-          "</div>" +
-          "</div>"
-      );
-      $(".btn-remove-file-" + fi.fileId)
-        .removeClass("btn-danger")
-        .addClass("btn-warning")
-        .attr("onclick", "")
-        .attr("disabled", "disabled")
-        .text("sending");
+      if (!document.getElementById(`file-${fi.fileId}`)) {
+        $("#files-list").append(
+          '<div class="col-sm-6 inline" id="file-' +
+            fi.fileId +
+            '">' +
+            '<div class="panel panel-default">' +
+            '<div class="panel-heading">' +
+            '<h3 class="panel-title dont-break-out">' +
+            fi.info.name +
+            "</h3>" +
+            "</div>" +
+            '<div class="panel-body">' +
+            "<p> type: <strong>" +
+            fi.info.type +
+            "</strong><br>size: <strong>" +
+            sizeOf(fi.info.size) +
+            "</strong></p>" +
+            '<div class="progress">' +
+            '<div class="progress-bar progress-bar-striped" role="progressbar"' +
+            ' aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"' +
+            ' style="width: 0%"><span class="sr-only">0% Complete</span></div>' +
+            "</div>" +
+            '<button  class="btn btn-sm btn-danger btn-remove-file-' +
+            fi.fileId +
+            '" disabled><span class="glyphicon glyphicon-remove"' +
+            'aria-hidden="true"></span> remove</button>' +
+            "</div>" +
+            "</div>" +
+            "</div>"
+        );
+      }
+
+      if (incoming) {
+        $(".btn-remove-file-" + fi.fileId)
+          .removeClass("btn-danger")
+          .addClass("btn-warning")
+          .attr("onclick", "")
+          .attr("disabled", "disabled")
+          .text("receiving");
+      }
+
+      if (outgoing) {
+        $(".btn-remove-file-" + fi.fileId)
+          .removeClass("btn-danger")
+          .addClass("btn-warning")
+          .attr("onclick", "")
+          .attr("disabled", "disabled")
+          .text("sending");
+      }
     });
   };
   shareJS.onFileComplete = (e) => {
-    var { peerId, fileId, save, info, outgoing, incoming } = e;
+    var { peerId, fileId, save, info, deleteFile, outgoing, incoming } = e;
 
-    $(".btn-remove-file-" + fileId)
-      .removeClass("btn-warning")
-      .addClass("btn-success")
-      .removeAttr("disabled")
-      .text("download");
+    if (incoming) {
+      $(".btn-remove-file-" + fileId)
+        .removeClass("btn-warning")
+        .addClass("btn-success")
+        .removeAttr("disabled")
+        .text("download (received)");
+      document.getElementsByClassName(
+        "btn-remove-file-" + fileId
+      )[0].onclick = () => {
+        save();
+        deleteFile();
+        removeFile(fileId);
+        // $("#file-" + fileId).remove();
+      };
+    }
 
-    document.getElementsByClassName(
-      "btn-remove-file-" + fileId
-    )[0].onclick = () => {
-      save();
-      $("#file-" + fileId).remove();
-    };
+    if (outgoing) {
+      $(".btn-remove-file-" + fileId)
+        .removeClass("btn-warning")
+        .addClass("btn-success")
+        .removeAttr("disabled")
+        .text("remove (sent)");
+      document.getElementsByClassName(
+        "btn-remove-file-" + fileId
+      )[0].onclick = () => {
+        deleteFile();
+        removeFile(fileId);
+        // $("#file-" + fileId).remove();
+      };
+    }
   };
 
   shareJS.onFileFailed = (e) => {
     var { peerId, fileId, info, outgoing, incoming } = e;
+
     $(".btn-remove-file-" + fileId)
       .removeClass("btn-warning")
       .addClass("btn-danger")
@@ -318,10 +352,10 @@ function setupPeerConnection() {
 
   yourConnection.onconnectionstatechange = function (e) {
     if (yourConnection.connectionState === "connected") {
-      share.addPeer(yourConnection, connectedUser);
-      share.connect(connectedUser, { initiator: window.initiator });
+      shareJS.addPeer(yourConnection, connectedUser);
+      shareJS.connect(connectedUser, { initiator: window.initiator });
     } else if (yourConnection.connectionState === "disconnected") {
-      share.removePeer(connectedUser);
+      shareJS.removePeer(connectedUser);
     }
   };
 
@@ -611,7 +645,7 @@ function onCandidate(candidate) {
 }
 
 function onLeave() {
-  if (connectedUser) share.removePeer(connectedUser);
+  if (connectedUser) shareJS.removePeer(connectedUser);
   dataChannel.close();
   yourConnection.close();
   connectedUser = null;

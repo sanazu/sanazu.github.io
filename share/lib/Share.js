@@ -3,27 +3,37 @@ var ShareJS = function (props) {
 
   if (!props) throw new Error("Atleast 1 argument is required");
 
-  window.shareJS = this;
+  return new Promise((resolve, reject) => {
+    try {
+      window.shareJS = this;
 
-  this.encoded = props.encoded || false;
-  this.maxChannels = props.channels || 1;
-  this.fileQueuing = props.fileQueuing || false;
-  this.autoCreatePeerId = props.autoCreatePeerId || false;
-  this.customFileId = props.customFileId || false;
+      this.encoded = props.encoded || false;
+      this.maxChannels = props.channels || 1;
+      this.fileQueuing = props.fileQueuing || false;
+      this.autoCreatePeerId = props.autoCreatePeerId || false;
+      this.customFileId = props.customFileId || false;
+      this.fileSystem = props.fileSystem || false;
+      this.CHUNKS_PER_ACK = props.maxParts || this.CHUNKS_PER_ACK;
+      this.CHUNK_MTU = props.chunkSize || this.CHUNK_MTU;
 
-  this.MAX_PARTS = props.maxParts || this.MAX_PARTS;
-  this.CHUNK_MTU = props.chunkSize || this.CHUNK_MTU;
-
-  if (this.autoCreatePeerId) {
-    this.localId = ShareJS.prototype.generateId();
-    console.log("auto generated LocalId : " + this.localId);
-  } else if (!props.localId) {
-    throw new Error("LocalId is null");
-  } else {
-    this.localId = props.localId;
-  }
-
-  console.log("ShareJS initialized with LocalId : " + this.localId);
+      if (this.autoCreatePeerId) {
+        this.localId = ShareJS.prototype.generateId();
+        shareJS.log("auto generated LocalId : " + this.localId);
+      } else if (!props.localId) {
+        throw new Error("LocalId is null");
+      } else {
+        this.localId = props.localId;
+      }
+      shareJS.log(`max chunk size ${this.CHUNK_MTU}`);
+      shareJS.log(`${this.maxChannels} datachannels  enabled for usage`);
+      shareJS.log(`encoding is ${this.encoded ? "enabled" : "disabled"}`);
+      shareJS.log(`fileSystem is ${this.fileSystem ? "enabled" : "disabled"}`);
+      shareJS.log("ShareJS initialized with LocalId : " + this.localId);
+      resolve();
+    } catch (e) {
+      reject(e);
+    }
+  });
 };
 
 ShareJS.prototype.peers = [];
@@ -41,7 +51,7 @@ ShareJS.prototype.addPeer = function (peer, peerId) {
   if (!peerId) {
     if (this.autoCreatePeerId) {
       peerId = ShareJS.prototype.generateId();
-      console.log("auto generated peerId : " + peerId);
+      shareJS.log("auto generated peerId : " + peerId);
     } else {
       throw new Error("PeerId is null");
     }
@@ -54,7 +64,7 @@ ShareJS.prototype.addPeer = function (peer, peerId) {
     );
 
     negotiator.onopen = (e) => {
-      //   console.log("ShareJS-negotiator opened", e);
+      //   shareJS.log("ShareJS-negotiator opened", e);
     };
     negotiator.onmessage = negotiationHandler;
 
@@ -66,11 +76,11 @@ ShareJS.prototype.addPeer = function (peer, peerId) {
       pendingFiles: [],
       negotiator,
     };
-    console.log("ShareJS added peerId : " + peerId);
+    shareJS.log("ShareJS added peerId : " + peerId);
 
     return this;
   } catch (e) {
-    console.error(e);
+    shareJS.error(e);
     throw new Error("problem while adding peer", e);
   }
 };
@@ -82,7 +92,7 @@ ShareJS.prototype.removePeer = function (peerId) {
   if (!this.peers[peerId]) {
     throw new Error("this peerId is not added!");
   }
-  console.log("ShareJS removed peerId : " + peerId);
+  shareJS.log("ShareJS removed peerId : " + peerId);
 
   return delete this.peers[peerId];
 };
@@ -119,7 +129,7 @@ ShareJS.prototype.addDataChannel = function (peerId) {
       ShareJS.prototype.dataChannelOptions
     );
     temp.onopen = function (e) {
-      console.log(this.label + " opened");
+      shareJS.log(this.label + " opened");
     };
     temp.onerror = shareJS.onError;
     temp.onmessage = shareJS.onMessage;
@@ -137,14 +147,14 @@ ShareJS.prototype.addDataChannel = function (peerId) {
           id: this.id,
         });
         temp1.onopen = () => {
-          console.log(this.label, this.id, " re opened");
+          shareJS.log(this.label, this.id, " re opened");
         };
         temp1.onerror = shareJS.onError;
         temp1.onmessage = shareJS.onMessage;
         temp1.onclose = onClose;
         channels.push(temp1);
       } catch (e) {
-        console.log("peerConnection closed, can't reconnect " + this.label);
+        shareJS.log("peerConnection closed, can't reconnect " + this.label);
       }
     };
     temp.onclose = onClose;
@@ -160,7 +170,7 @@ ShareJS.prototype.addDataChannel = function (peerId) {
 const negotiationHandler = function (e) {
   try {
     var msg = shareJS.decode(e.data, true);
-    console.log("Got negotiation Msg", msg);
+    shareJS.log("Got negotiation Msg", msg);
     if (msg.type && msg.type === "handshake-ping") {
       if (msg.peerId && !!ShareJS.prototype.peers[msg.peerId].conn) {
         ShareJS.prototype.addDataChannel(msg.peerId);
@@ -203,20 +213,20 @@ ShareJS.prototype.startShare = function (peerId, files) {
   if (!this.peers[peerId]) {
     throw new Error("this peerId is not added!");
   }
-  console.log("starting share  : " + peerId);
+  shareJS.log("starting share  : " + peerId);
 
   var peer = this.peers[peerId];
 
   if (!!shareJS.fileQueuing) {
-    console.log("file Queuing enabled");
+    shareJS.log("file Queuing enabled");
   } else {
-    console.log("file Queuing (not)enabled");
+    shareJS.log("file Queuing (not)enabled");
   }
 
   files.forEach((file, i) => {
     var info = ShareJS.prototype.getFileInfo(file);
     // if (info.blocks > shareJS.MAX_PARTS) {
-    //   console.error(
+    //   shareJS.error(
     //     `File size is exceded the maximum supported amount : ${info.parts}`,
     //     `ignoring file : ${file.name}`
     //   );
@@ -266,6 +276,8 @@ ShareJS.prototype.startShare = function (peerId, files) {
 };
 
 ShareJS.prototype.getBlockRange = function (blockId, options = {}) {
+  if (!(this instanceof ShareJS)) return;
+
   // ---------------------------------
   // |    block 1   |     block 2    |
   // ---------------------------------
@@ -348,7 +360,9 @@ ShareJS.prototype.sendFileBlock = function (peerId, fileId, blockId) {
 
   return new Promise(async (resolve, reject) => {
     try {
-      console.groupCollapsed(`fileTransferLogs => block-${blockId}`);
+      console.groupCollapsed(
+        `fileTransferLogs => file-${fileId} block-${blockId}`
+      );
       const peer = this.peers[peerId];
       const { outgoing } = peer;
       const { info, file } = outgoing[fileId];
@@ -358,12 +372,11 @@ ShareJS.prototype.sendFileBlock = function (peerId, fileId, blockId) {
 
       function sendChunkWithIndex(chunk, index) {
         var part = index + 1;
-        // outgoing[fileId].partsSent = outgoing[fileId].partsSent + 1;
-        // outgoing[fileId].progress = Math.floor(
-        //   (outgoing[fileId].partsSent / info.parts) * 100
-        // );
+
+        outgoing[fileId].partsSent = outgoing[fileId].partsSent + 1;
+
         outgoing[fileId].progress = Math.floor(
-          (part / this.CHUNKS_PER_ACK) * 100
+          (outgoing[fileId].partsSent / outgoing[fileId].info.parts) * 100
         );
         shareJS.dataChannelSend(
           peerId,
@@ -376,9 +389,18 @@ ShareJS.prototype.sendFileBlock = function (peerId, fileId, blockId) {
             payload: shareJS.arrayBufferToBase64(chunk),
           })
         );
-        console.log(
-          `part no. sent -- ${part} -- ${outgoing[fileId].progress} %`
+
+        const { begin, end } = shareJS.getBlockRange(blockId).buffer;
+
+        const finalPartSize = Math.ceil(
+          (Math.min(outgoing[fileId].info.size, end) - begin) /
+            shareJS.CHUNK_MTU
         );
+
+        shareJS.log(
+          `block ${blockId}/${outgoing[fileId].info.blocks} - part ${part}/${finalPartSize}`
+        );
+
         shareJS.onProgress({
           peerId,
           fileId,
@@ -389,54 +411,73 @@ ShareJS.prototype.sendFileBlock = function (peerId, fileId, blockId) {
       }
 
       // start
-      shareJS.dataChannelSend(
-        peerId,
-        shareJS.encode({
-          type: "block-begin",
-          blockId,
-          peerId: shareJS.localId,
+      // shareJS.dataChannelSend(
+      //   peerId,
+      //   shareJS.encode({
+      //     type: "block-begin",
+      //     blockId,
+      //     peerId: shareJS.localId,
+      //     fileId,
+      //     info,
+      //   })
+      // );
+
+      if (blockId === 1) {
+        let fileInfo = [];
+
+        fileInfo.push({
           fileId,
-          info,
-        })
-      );
+          fileInfo: outgoing[fileId].info,
+        });
+
+        shareJS.onFileBegin({
+          peerId,
+          fileInfo,
+          outgoing: true,
+        });
+      }
+
+      shareJS.log("block -------------- begin...........");
 
       // process
       chunks.forEach((chunk, index) => {
         // Throttle the sending to avoid flooding
-        setTimeout(function () {
-          if (interval === shareJS.maxChannels * queueLayer) {
-            console.log("sleep start - " + new Date(Date.now()));
-            ShareJS.prototype.sleep(1 * 1000);
-            console.log("sleep stop - " + new Date(Date.now()));
-            interval = 0;
-          } else {
-            interval++;
-          }
+        // setTimeout(function () {
+        // if (interval === shareJS.maxChannels * queueLayer) {
+        //   shareJS.log("sleep start - " + new Date(Date.now()));
+        //   ShareJS.prototype.sleep(2 * 100);
+        //   shareJS.log("sleep stop - " + new Date(Date.now()));
 
-          sendChunkWithIndex(chunk, index);
+        //   interval = 0;
+        // } else {
+        //   interval++;
+        // }
 
-          if ((index + 1) % 100 === 0) {
-            console.log(`---------break at ${index + 1}---------`);
-            ShareJS.prototype.sleep(5 * 1000);
-          }
-        }, 1 * 100); // this slows the file transfer significantly
+        sendChunkWithIndex(chunk, index);
+        ShareJS.prototype.sleep(1 * 100);
+        // }, 1 * 100); // this slows the file transfer significantly
       });
 
       // end
-      setTimeout(() => {
-        shareJS.dataChannelSend(
-          peerId,
-          shareJS.encode({
-            type: "block-end",
-            blockId,
-            peerId: shareJS.localId,
-            fileId,
-            info,
-          })
-        );
-      }, 5 * 1000);
+      // setTimeout(() => {
+      //   shareJS.dataChannelSend(
+      //     peerId,
+      //     shareJS.encode({
+      //       type: "block-end",
+      //       blockId,
+      //       peerId: shareJS.localId,
+      //       fileId,
+      //       info,
+      //     })
+      //   );
+      // }, 5 * 1000);
+
+      shareJS.log("block -------------- end ...........");
       console.groupEnd();
 
+      if (blockId === outgoing[fileId].info.blocks) {
+        shareJS.log(`${fileId} sent sucessffuly`);
+      }
       resolve(true);
     } catch (e) {
       shareJS.dataChannelSend(
@@ -491,7 +532,7 @@ ShareJS.prototype.dataChannelSend = function (peerId, msg) {
   var { channels } = this.peers[peerId];
   var id;
   if (channels.length > 1) {
-    id = shareJS.getDataChannelId(channels.length);
+    id = shareJS.getDataChannelId(channels);
   } else {
     id = channels.length - 1;
   }
@@ -503,13 +544,13 @@ ShareJS.prototype.dataChannelSend = function (peerId, msg) {
       ) {
         channel.send(msg);
       } else {
-        console.log("waiting for 5ms to send.....");
+        shareJS.log("waiting for 5ms to send.....");
         setTimeout(() => {
           send(channel, payload);
         }, 1 * 100);
       }
     } catch (e) {
-      console.log("catched error" + e);
+      shareJS.log("catched error" + e);
       throw new Error("problem while sending data " + e);
     }
   };
@@ -520,46 +561,68 @@ ShareJS.prototype.dataChannelSend = function (peerId, msg) {
   }
 };
 
-ShareJS.prototype.getDataChannelId = function (channelLength) {
-  var canLog = false;
+ShareJS.prototype.getDataChannelId = function (
+  channels,
+  strategy = "sequence"
+) {
+  let canLog = false;
+  let result;
   if (canLog) console.groupCollapsed("getDataChannelId");
-  if (!shareJS.lastConnectedChannels) {
-    shareJS.lastConnectedChannels = [];
-  } else {
-    if (
-      shareJS.lastConnectedChannels &&
-      shareJS.lastConnectedChannels.length >= channelLength
-    ) {
-      if (canLog) console.log("shifting lastConnectedChannels");
-      shareJS.lastConnectedChannels.shift();
+  if (strategy === "sequence") {
+    if (!shareJS.lastConnectedChannels) {
+      shareJS.lastConnectedChannels = [];
+    } else {
+      if (
+        shareJS.lastConnectedChannels &&
+        shareJS.lastConnectedChannels.length >= channels.length
+      ) {
+        if (canLog) shareJS.log("shifting lastConnectedChannels");
+        shareJS.lastConnectedChannels.shift();
+      }
     }
-  }
-  var bLen, aLen;
-  bLen = shareJS.lastConnectedChannels.length;
-  if (canLog)
-    console.log(
-      " before lastConnectedChannels ",
-      shareJS.lastConnectedChannels
-    );
-  var result;
-  for (var i = 0; i < channelLength; i++) {
-    var id = i; //ShareJS.prototype.randomNumber(0, channelLength - 1);
-    if (canLog) console.log(id + " --- id gen ");
-    if (!shareJS.lastConnectedChannels.includes(id)) {
-      if (canLog) console.log("filtered id : " + id);
-      result = id;
-      shareJS.lastConnectedChannels.push(id);
-      break;
+    var bLen, aLen;
+    bLen = shareJS.lastConnectedChannels.length;
+    if (canLog)
+      shareJS.log(
+        " before lastConnectedChannels ",
+        shareJS.lastConnectedChannels
+      );
+
+    for (var i = 0; i < channels.length; i++) {
+      var id = i; //ShareJS.prototype.randomNumber(0, channelLength - 1);
+      if (canLog) shareJS.log(id + " --- id gen ");
+      if (!shareJS.lastConnectedChannels.includes(id)) {
+        if (canLog) shareJS.log("filtered id : " + id);
+        result = id;
+        shareJS.lastConnectedChannels.push(id);
+        break;
+      }
+      continue;
     }
-    continue;
-  }
-  aLen = shareJS.lastConnectedChannels.length;
-  if (canLog)
-    console.log(" after lastConnectedChannels ", shareJS.lastConnectedChannels);
-  if (canLog) console.log("datachannelId return ", result, channelLength);
-  if (canLog) console.groupEnd();
-  if (bLen + 1 !== aLen) {
-    throw new Error("getDataChannelId error");
+    aLen = shareJS.lastConnectedChannels.length;
+    if (canLog)
+      shareJS.log(
+        " after lastConnectedChannels ",
+        shareJS.lastConnectedChannels
+      );
+    if (canLog) shareJS.log("datachannelId return ", result, channelLength);
+    if (canLog) console.groupEnd();
+    if (bLen + 1 !== aLen) {
+      throw new Error("getDataChannelId error");
+    }
+  } else if (strategy === "buffer") {
+    for (var i = 0; i < channels.length; i++) {
+      if (channels[i].bufferedAmount <= 5 * shareJS.CHUNK_MTU) {
+        result = i;
+        break;
+      } else if (i === channels.length - 1) {
+        result = ShareJS.prototype.randomNumber(0, channels.length - 1);
+        break;
+      }
+      continue;
+    }
+  } else if (strategy === "random") {
+    result = ShareJS.prototype.randomNumber(0, channels.length - 1);
   }
   return result;
 };
@@ -580,7 +643,7 @@ ShareJS.prototype.onProgress = function ({
   progress,
   outgoing,
 }) {
-  console.log(
+  shareJS.log(
     info.fileId + " is in progress of " + info.size + "   " + progress
   );
 };
@@ -594,7 +657,7 @@ ShareJS.prototype.connect = function (peerId, { initiator }) {
   if (!this.peers[peerId]) {
     throw new Error("this peerId is not added!");
   }
-  console.log("started handshaking with :" + peerId);
+  shareJS.log("started handshaking with :" + peerId);
 
   var send = () => {
     if (self.peers[peerId].negotiator.readyState === "open") {
@@ -625,21 +688,21 @@ ShareJS.prototype.getFileInfo = function (file) {
 };
 
 ShareJS.prototype.onReady = function (e) {
-  console.log("ready " + e);
+  shareJS.log("ready " + e);
 };
 
 ShareJS.prototype.onClose = function (e) {};
 ShareJS.prototype.onFileComplete = function (e) {
   e.save();
   window.file = e;
-  console.log(e);
+  shareJS.log(e);
 };
 ShareJS.prototype.onFileBegin = function (e) {
-  console.log(e);
+  shareJS.log(e);
 };
 
 ShareJS.prototype.onFileFailed = function (e) {
-  console.log(e);
+  shareJS.log(e);
 };
 ShareJS.prototype.onError = function (e) {};
 ShareJS.prototype.onClose = function (e) {};
@@ -655,7 +718,7 @@ ShareJS.prototype.onMessage = function (e) {
     msg = shareJS.decode(data);
   }
 
-  // console.log("multi channel : " + this.id, msg.type, msg.fileId, msg.part);
+  // shareJS.log("multi channel : " + this.id, msg.type, msg.fileId, msg.part);
   switch (msg.type) {
     case "files-info":
       handleFileInfo(msg);
@@ -679,7 +742,7 @@ ShareJS.prototype.onMessage = function (e) {
       handleComplete(msg);
       break;
     default:
-      console.error("malformed Message", msg);
+      shareJS.error("malformed Message", msg);
       break;
   }
 };
@@ -696,15 +759,23 @@ const handleFileInfo = function (msg) {
     throw new Error("this peerId is not added!");
   }
 
-  console.log(`file transfer initiated from ${peerId}`);
+  shareJS.log(`file transfer initiated from ${peerId}`);
 
   var peer = shareJS.peers[peerId];
 
-  fileInfo.forEach((file) => {
+  fileInfo.forEach(async (file) => {
+    let fileEntry;
+    if (shareJS.fileSystem) {
+      fileEntry = await new File({
+        name: file.info.name,
+        size: file.info.size,
+        type: file.info.type,
+      });
+    }
     peer.incoming[file.fileId] = {
       peerId,
       info: file.info,
-      file: null,
+      file: fileEntry ? fileEntry : null,
       progress: 0,
 
       currentTransfer: {
@@ -714,18 +785,13 @@ const handleFileInfo = function (msg) {
       },
       blocks: [],
     };
-  });
-  var { incoming } = peer;
-  // const ongoingFileId = Object.keys(incoming);
-
-  Object.keys(incoming).forEach((id) => {
     shareJS.dataChannelSend(
       peerId,
       shareJS.encode({
         type: "block-request",
         blockId: 1,
         peerId: shareJS.localId,
-        fileId: id,
+        fileId: file.fileId,
       })
     );
   });
@@ -739,7 +805,7 @@ const handleFileInfo = function (msg) {
 
 const handleBlockRequest = async function (msg) {
   const { blockId, fileId, peerId } = msg;
-  console.log("block request", msg);
+  shareJS.log("block request", msg);
   await shareJS.sendFileBlock(peerId, fileId, blockId);
 };
 
@@ -754,15 +820,17 @@ const handleComplete = async function (msg) {
     return;
     throw new Error("this peerId is not added!");
   }
-  console.log(`${fileId} transfered to ${peerId}`);
+  shareJS.log(`${fileId} transfered to ${peerId}`);
   var { outgoing } = shareJS.peers[peerId];
   shareJS.onFileComplete({
     peerId,
     fileId,
     info: outgoing[fileId].info,
     outgoing: true,
+    deleteFile: () => {
+      delete outgoing[fileId];
+    },
   });
-  delete outgoing[fileId];
 };
 
 const handlePayload = async function (msg) {
@@ -792,7 +860,8 @@ const handlePayload = async function (msg) {
   ) {
     return;
   }
-  console.log(`${fileId} payload from ${peerId}`);
+
+  shareJS.log(`${fileId} payload from ${peerId}`);
 
   const { begin, end } = shareJS.getBlockRange(blockId).buffer;
 
@@ -800,32 +869,95 @@ const handlePayload = async function (msg) {
     (Math.min(incoming[fileId].info.size, end) - begin) / shareJS.CHUNK_MTU
   );
 
-  console.log(
+  shareJS.log(
     `block ${blockId}/${incoming[fileId].info.blocks} - part ${part}/${finalPartSize}`
   );
 
   current.chunks[part - 1] = payload;
   current.receivedParts = current.chunks.length;
 
+  let currentParts;
+
+  if (shareJS.fileSystem && incoming[fileId].file) {
+    currentParts =
+      incoming[fileId].file.seek / shareJS.CHUNK_MTU + current.receivedParts;
+  } else {
+    currentParts = incoming[fileId].blocks.length * 64 + current.receivedParts;
+  }
   incoming[fileId].progress = Math.floor(
-    ((incoming[fileId].blocks.length * 64 + current.receivedParts) /
-      incoming[fileId].info.parts) *
-      100
+    (currentParts / incoming[fileId].info.parts) * 100
   );
 
-  if (finalPartSize === part) {
-    console.log(incoming[fileId]);
-    console.log(`block - ${blockId} is received succefully`);
-    incoming[fileId].blocks[current.block - 1] = current.chunks;
+  if (part === 1 && blockId === 1) {
+  }
+
+  if (finalPartSize === part && finalPartSize === current.chunks.length) {
+    shareJS.log(incoming[fileId]);
+
+    if (shareJS.fileSystem && incoming[fileId].file) {
+      await incoming[fileId].file.append(
+        ShareJS.prototype.base64ToBlob(
+          current.chunks,
+          incoming[fileId].info.type,
+          false
+        )
+      );
+    } else {
+      incoming[fileId].blocks[current.block - 1] = current.chunks;
+    }
+
+    shareJS.log(`block - ${blockId}  is received succefully`);
     current.chunks = [];
     current.receivedParts = 0;
     if (incoming[fileId].info.blocks === blockId) {
       // completed response
       current.block = 0;
-      console.log(`${fileId} is received sucessfully`);
+      shareJS.dataChannelSend(
+        peerId,
+        shareJS.encode({
+          peerId: shareJS.localId,
+          type: "complete",
+          fileId: fileId,
+        })
+      );
+
+      let save;
+
+      if (shareJS.fileSystem && incoming[fileId].file) {
+        save = () => {
+          if (incoming[fileId].file) {
+            incoming[fileId].file.save();
+          }
+        };
+      } else {
+        incoming[fileId].file = ShareJS.prototype.base64ToBlob(
+          ShareJS.prototype.getBase64FromBlocks(incoming[fileId].blocks),
+          incoming[fileId].info.type
+        );
+
+        save = () => {
+          shareJS.log(
+            `removing file ${incoming[fileId].info.name} from memory`
+          );
+          saveAs(incoming[fileId].file, incoming[fileId].info.name);
+        };
+      }
+
+      shareJS.onFileComplete({
+        peerId,
+        fileId,
+        info: incoming[fileId].info,
+        incoming: true,
+        save,
+        deleteFile: () => {
+          delete incoming[fileId];
+        },
+      });
+      shareJS.log(`${fileId} is received sucessfully`);
     } else {
-      console.log(`requesting for block - ${blockId + 1}`);
+      shareJS.log(`requesting for block - ${blockId + 1}`);
       current.block = current.block + 1;
+      // ShareJS.prototype.sleep(10 * 100);
       shareJS.dataChannelSend(
         peerId,
         shareJS.encode({
@@ -859,47 +991,9 @@ const handleEndFile = async function (msg) {
     throw new Error("this peerId is not added!");
   }
 
-  console.log(`${fileId} transfer started from ${peerId}`);
+  shareJS.log(`${fileId} transfer started from ${peerId}`);
 
   var { incoming } = shareJS.peers[peerId];
-
-  var makeFile = function (fileData) {
-    try {
-      if (fileData.receivedParts === fileData.info.parts) {
-        fileData.file = ShareJS.prototype.base64ToBlob(
-          fileData.chunks,
-          fileData.info.type
-        );
-        console.log("file generated sucessfully");
-        shareJS.dataChannelSend(
-          peerId,
-          shareJS.encode({
-            peerId: shareJS.localId,
-            type: "complete",
-            fileId: fileId,
-          })
-        );
-      } else {
-        throw new Error();
-      }
-    } catch (e) {
-      setTimeout(() => {
-        makeFile(fileData);
-      }, 5 * 1000);
-    }
-  };
-
-  // makeFile(incoming[fileId]);
-  // shareJS.onFileComplete({
-  //   peerId,
-  //   fileId,
-  //   info,
-  //   incoming: true,
-  //   save: () => {
-  //     saveAs(incoming[fileId].file, incoming[fileId].info.name);
-  //     delete incoming[fileId];
-  //   },
-  // });
 };
 
 const handleFailedFile = async function (msg) {
@@ -914,7 +1008,7 @@ const handleFailedFile = async function (msg) {
     throw new Error("this peerId is not added!");
   }
 
-  console.log(`${fileId} transfer started from ${peerId}`);
+  shareJS.log(`${fileId} transfer started from ${peerId}`);
 
   var { incoming } = shareJS.peers[peerId];
 };
@@ -931,43 +1025,14 @@ const handleBeginfile = function (msg) {
     throw new Error("this peerId is not added!");
   }
 
-  console.log(`${fileId} transfer started from ${peerId}`);
+  shareJS.log(`${fileId} transfer started from ${peerId}`);
 
   var { incoming } = shareJS.peers[peerId];
-  // new File({
-  //   name: info.name,
-  //   size: info.size,
-  //   type: info.type,
-  // }).then((file) => {
-  //   incoming[fileId] = {
-  //     peerId,
-  //     info,
-  //     file,
-  //     progress: 0,
-  //     chunks: [],
-  //   };
-  // });
-
-  // incoming[fileId] = {
-  //   peerId,
-  //   info,
-  //   file: null,
-  //   progress: 0,
-  //   receivedParts: 0,
-  //   chunks: [],
-  // };
-
-  // shareJS.onFileBegin({
-  //   peerId,
-  //   fileId,
-  //   info,
-  //   incoming: true,
-  // });
 };
 
 ShareJS.prototype.onConnect = function (props) {
   if (!(this instanceof ShareJS)) return;
-  console.log("incoming connection auto-accept " + props.peerId);
+  shareJS.log("incoming connection auto-accept " + props.peerId);
   props.accept();
 };
 
@@ -981,7 +1046,17 @@ ShareJS.prototype.arrayBufferToBase64 = function (buffer) {
   return btoa(binary);
 };
 
-ShareJS.prototype.base64ToBlob = function (b64Data, contentType) {
+ShareJS.prototype.getBase64FromBlocks = function (blocks) {
+  let base64 = [];
+
+  blocks.forEach((block) => {
+    block.forEach((chunk) => {
+      base64.push(chunk);
+    });
+  });
+  return base64;
+};
+ShareJS.prototype.base64ToBlob = function (b64Data, contentType, blob = true) {
   contentType = contentType || "";
 
   var byteArrays = [],
@@ -1001,6 +1076,10 @@ ShareJS.prototype.base64ToBlob = function (b64Data, contentType) {
     byteArrays.push(byteArray);
   }
 
+  if (!blob) {
+    return byteArrays;
+  }
+
   var blob = new Blob(byteArrays, { type: contentType });
   return blob;
 };
@@ -1009,8 +1088,8 @@ ShareJS.prototype.encode = function (data, stringify = true) {
   if (!data) throw new Error("data is empty");
   if (!!stringify) data = JSON.stringify(data);
   if (shareJS.encoded) {
-    console.log("encoding enabled");
-    console.log(data);
+    shareJS.log("encoding enabled");
+    shareJS.log(data);
     data = btoa(data);
   }
   return data;
@@ -1019,9 +1098,9 @@ ShareJS.prototype.encode = function (data, stringify = true) {
 ShareJS.prototype.decode = function (data, parse = true) {
   if (!data) throw new Error("data is empty");
   if (shareJS.encoded) {
-    console.log("decoding enabled");
+    shareJS.log("decoding enabled");
     data = atob(data);
-    console.log(data);
+    shareJS.log(data);
   }
   if (!!parse) data = JSON.parse(data);
   return data;
@@ -1031,15 +1110,22 @@ ShareJS.prototype.dataChannelOptions = {
   id: 1000,
 };
 
+ShareJS.prototype.log  = function () {
+  console.log(...["ShareJS : ", ...arguments]);
+};
+
+ShareJS.prototype.error = function () {
+  console.error(...["ShareJS : ", ...arguments]);
+}
+
 ShareJS.prototype.isMeetJS = true;
-// ShareJS.prototype.MAX_PARTS = 50;
 ShareJS.prototype.CHUNK_MTU = 16000;
 ShareJS.prototype.CHUNKS_PER_ACK = 64;
 
 // ShareJS.prototype.sendFile = async function (peerId, peer, fileId) {
 //   var { outgoing } = peer;
 
-//   console.log("no outgoing file -- initiating ..");
+//   shareJS.log("no outgoing file -- initiating ..");
 //   var { info, file, chunks } = outgoing[fileId];
 //   var reader = new FileReader();
 
@@ -1062,7 +1148,7 @@ ShareJS.prototype.CHUNKS_PER_ACK = 64;
 //     await shareJS.sendFileBlock(peerId, fileId, k);
 //   }
 
-//   console.log("sending file completed", file, fileId);
+//   shareJS.log("sending file completed", file, fileId);
 
 //   setTimeout(() => {
 //     shareJS.dataChannelSend(
@@ -1107,7 +1193,7 @@ ShareJS.prototype.CHUNKS_PER_ACK = 64;
 //               payload: shareJS.arrayBufferToBase64(chunk),
 //             })
 //           );
-//           console.log(
+//           shareJS.log(
 //             `part no. sent -- ${part} -- ${outgoing[fileId].progress} %`
 //           );
 //           shareJS.onProgress({
@@ -1123,9 +1209,9 @@ ShareJS.prototype.CHUNKS_PER_ACK = 64;
 //           // Throttle the sending to avoid flooding
 //           setTimeout(function () {
 //             if (interval === shareJS.maxChannels * queueLayer) {
-//               console.log("sleep start - " + new Date(Date.now()));
+//               shareJS.log("sleep start - " + new Date(Date.now()));
 //               ShareJS.prototype.sleep(1 * 1000);
-//               console.log("sleep stop - " + new Date(Date.now()));
+//               shareJS.log("sleep stop - " + new Date(Date.now()));
 //               interval = 0;
 //             } else {
 //               interval++;
@@ -1134,7 +1220,7 @@ ShareJS.prototype.CHUNKS_PER_ACK = 64;
 
 //             // If this is the last chunk send our end message, otherwise keep sending
 //             if (i === info.parts - 1) {
-//               console.log("sending file completed", file, fileId);
+//               shareJS.log("sending file completed", file, fileId);
 
 //               setTimeout(() => {
 //                 shareJS.dataChannelSend(
@@ -1149,11 +1235,11 @@ ShareJS.prototype.CHUNKS_PER_ACK = 64;
 //               }, 5 * 1000);
 
 //               peer.channels.forEach((ch, j) => {
-//                 console.log(ch.id, ch.label, ch.bufferedAmount, ch.readyState);
+//                 shareJS.log(ch.id, ch.label, ch.bufferedAmount, ch.readyState);
 //               });
 //             }
 //             if ((i + 1) % 100 === 0) {
-//               console.log(`---------break at ${i + 1}---------`);
+//               shareJS.log(`---------break at ${i + 1}---------`);
 //               ShareJS.prototype.sleep(5 * 1000);
 //             }
 //           }, 1 * 100); // this slows the file transfer significantly
@@ -1169,7 +1255,7 @@ ShareJS.prototype.CHUNKS_PER_ACK = 64;
 //           })
 //         );
 
-//         console.log(e);
+//         shareJS.log(e);
 //         throw new Error(
 //           JSON.stringify({
 //             reason: "failed",
@@ -1212,7 +1298,7 @@ ShareJS.prototype.CHUNKS_PER_ACK = 64;
 //     return;
 //     throw new Error("this peerId is not added!");
 //   }
-//   console.log(`${fileId} transfered to ${peerId}`);
+//   shareJS.log(`${fileId} transfered to ${peerId}`);
 //   var { outgoing } = shareJS.peers[peerId];
 //   shareJS.onFileComplete({
 //     peerId,
@@ -1235,7 +1321,7 @@ ShareJS.prototype.CHUNKS_PER_ACK = 64;
 //     throw new Error("this peerId is not added!");
 //   }
 
-//   console.log(`${fileId} payload from ${peerId} part ${part}`);
+//   shareJS.log(`${fileId} payload from ${peerId} part ${part}`);
 
 //   var { incoming } = shareJS.peers[peerId];
 
@@ -1267,7 +1353,7 @@ ShareJS.prototype.CHUNKS_PER_ACK = 64;
 //     throw new Error("this peerId is not added!");
 //   }
 
-//   console.log(`${fileId} transfer started from ${peerId}`);
+//   shareJS.log(`${fileId} transfer started from ${peerId}`);
 
 //   var { incoming } = shareJS.peers[peerId];
 
@@ -1278,7 +1364,7 @@ ShareJS.prototype.CHUNKS_PER_ACK = 64;
 //           fileData.chunks,
 //           fileData.info.type
 //         );
-//         console.log("file generated sucessfully");
+//         shareJS.log("file generated sucessfully");
 //         shareJS.dataChannelSend(
 //           peerId,
 //           shareJS.encode({
@@ -1322,7 +1408,7 @@ ShareJS.prototype.CHUNKS_PER_ACK = 64;
 //     throw new Error("this peerId is not added!");
 //   }
 
-//   console.log(`${fileId} transfer started from ${peerId}`);
+//   shareJS.log(`${fileId} transfer started from ${peerId}`);
 
 //   var { incoming } = shareJS.peers[peerId];
 // };
@@ -1339,7 +1425,7 @@ ShareJS.prototype.CHUNKS_PER_ACK = 64;
 //     throw new Error("this peerId is not added!");
 //   }
 
-//   console.log(`${fileId} transfer started from ${peerId}`);
+//   shareJS.log(`${fileId} transfer started from ${peerId}`);
 
 //   var { incoming } = shareJS.peers[peerId];
 //   // new File({
