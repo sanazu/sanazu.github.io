@@ -1,6 +1,6 @@
 var name, connectedUser, qrcode;
 
-var relayServer = false;
+var relayServer = true;
 window.initiator = false;
 
 function generateCode() {
