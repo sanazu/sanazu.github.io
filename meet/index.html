@@ -69,11 +69,12 @@
     <button type="button" class="btn btn-primary" onclick="createOffer()">
       SEND
     </button>
-    <script src="Meet-with-adapter.js"></script>
+    <script src="Meet.js"></script>
     <!--WebRTC related code-->
 
     <script>
       window.onbeforeunload = () => {
+        MeetJS.emit(MeetJS.SOCKET_EVENTS.CLOSE_ALL);
         return "are you sure";
       };
       fetch = function () {
@@ -106,6 +107,8 @@
         contextPath: "socket",
         url: "https://chat-demo-v1.herokuapp.com".replace("http", "ws"),
         debug: true,
+        userStatusNeeded: true,
+        // forceConsole: true,
         // autoRevokeMedia: true,
       });
       window.activeUsers = [];
@@ -121,7 +124,6 @@
           remotePeer: peerName,
           users: meet.getActiveCallUsers().filter((p) => p !== peerName),
         });
-        // meet.emit("CANCEL", peerName);
         // meet.emit("REJECT", peerName);
       });
 
@@ -174,12 +176,21 @@
           setRemoteVideo(user.remotePeer, user.rStream);
         }
       });
+
+      meet.on("JOINED", (peerName) => {
+        alert(`peer joined : ${peerName}`);
+      });
+
+      meet.on("LEFT", (peerName) => {
+        alert(`peer left : ${peerName}`);
+      });
       meet.on("DISCONNECTED", (remotePeer) => {
         if (activeUsers[remotePeer]) {
           delete activeUsers[remotePeer];
           document
             .getElementById("videos")
             .removeChild(document.getElementById(remotePeer));
+          // MeetJS.emit(MeetJS.LOCAL_EVENTS.STOP_MEDIA);
         }
       });
       meet.on("RECEIVED_MESSAGE", ({ userName, data }) => {
@@ -195,6 +206,7 @@
       meet.emit("CONNECT", prompt("enter the userName"));
       function createOffer() {
         MeetJS.emit("CALL", document.getElementById("messageInput").value);
+        // meet.emit("CANCEL", peerName);
         // meet.emit("SEND_MESSAGE", {
         //   remotePeer: document.getElementById("messageInput").value,
         //   data: {
