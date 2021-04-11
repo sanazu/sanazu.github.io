@@ -5649,24 +5649,24 @@ const defautConfig = {
     // {
     //   urls: ["stun:stun.l.google.com:19302"],
     // },
-    {
-      urls: [
-        "turn:207.148.124.163:3478",
-        "turn:207.148.124.163:3478?transport=tcp",
-      ],
-      username: "1596262710",
-      credential: "5DX48ynOZOy5J0EL7Ae3CS6JshI=",
-    },
-    // {
-    //   urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
-    //   credential: "muazkh",
-    //   username: "webrtc@live.com",
-    // },
-    // {
-    //   urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
-    //   username: "normanarguet@gmail.com",
-    //   credential: "1ceCre4m007",
-    // },
+    //{
+      //urls: [
+        //"turn:207.148.124.163:3478",
+        //"turn:207.148.124.163:3478?transport=tcp",
+      //],
+      //username: "1596262710",
+     // credential: "5DX48ynOZOy5J0EL7Ae3CS6JshI=",
+    //},
+     {
+       urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
+       credential: "muazkh",
+       username: "webrtc@live.com",
+     },
+     {
+       urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
+       username: "normanarguet@gmail.com",
+       credential: "1ceCre4m007",
+     },
   ],
 };
 
