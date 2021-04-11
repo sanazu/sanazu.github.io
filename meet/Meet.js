@@ -5657,11 +5657,11 @@ const defautConfig = {
       //username: "1596262710",
      // credential: "5DX48ynOZOy5J0EL7Ae3CS6JshI=",
     //},
-     {
-       urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
-       credential: "muazkh",
-       username: "webrtc@live.com",
-     },
+     //{
+       //urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
+       //credential: "muazkh",
+       //username: "webrtc@live.com",
+     //},
      {
        urls: ["turn:numb.viagenie.ca", "turn:numb.viagenie.ca?transport=tcp"],
        username: "normanarguet@gmail.com",
