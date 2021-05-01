@@ -21,7 +21,6 @@
     />
     <title>Web Messenger</title>
     <link href="static/css/main.162f152b.chunk.css" rel="stylesheet" />
-    <script src="sw.js"></script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
@@ -117,7 +116,19 @@
       })([]);
     </script>
     <script>
-      registerServiceWorker();
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('worker.js').then(function(registration) {
+            console.log('Worker registration successful', registration.scope);
+          }, function(err) {
+            console.log('Worker registration failed', err);
+          }).catch(function(err) {
+            console.log(err);
+          });
+        });
+      } else {
+        console.log('Service Worker is not supported by browser.');
+      }
     </script>
     
     <script src="static/js/2.580e3f16.chunk.js"></script>
