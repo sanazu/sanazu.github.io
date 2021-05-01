@@ -118,7 +118,7 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
-          navigator.serviceWorker.register('worker.js').then(function(registration) {
+          navigator.serviceWorker.register('sw.js').then(function(registration) {
             console.log('Worker registration successful', registration.scope);
           }, function(err) {
             console.log('Worker registration failed', err);
@@ -130,7 +130,7 @@
         console.log('Service Worker is not supported by browser.');
       }
     </script>
-    <script src="sw.js"></script>
+<!--     <script src="sw.js"></script> -->
     <script src="static/js/2.580e3f16.chunk.js"></script>
     <script src="static/js/main.542e1f63.chunk.js"></script>
   </body>
