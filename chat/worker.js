@@ -33,7 +33,7 @@ self.addEventListener('install', function(event) {
               // We could also cache assets like CSS and images
               const urlsToCache = [
                 '/chat/',
-                assets['./logo.png','./static/css/main.162f152b.chunk.css','./static/js/main.542e1f63.chunk.js','./static/js/2.580e3f16.chunk.js','./manifest.webmanifest']
+                assets['/chat/logo.png','/chat/static/css/main.162f152b.chunk.css','/chat/static/js/main.542e1f63.chunk.js','/chat/static/js/2.580e3f16.chunk.js','/chat/manifest.webmanifest']
               ];
               cache.addAll(urlsToCache);
             })
