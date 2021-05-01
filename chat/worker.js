@@ -24,20 +24,12 @@ self.addEventListener('install', function(event) {
     event.waitUntil(
       caches.open(CACHE_NAME)
         .then(function(cache) {
-          fetch('asset-manifest.json')
-            .then(response => {
-              response.json();
-            })
-            .then(assets => {
-              console.log(assets,"file");
-              // We will cache initial page and the main.js
-              // We could also cache assets like CSS and images
+         
               const urlsToCache = [
                 '/',
-                assets['logo.png','static/css/main.162f152b.chunk.css','static/js/main.542e1f63.chunk.js','static/js/2.580e3f16.chunk.js','manifest.webmanifest']
+                ...['logo.png','static/css/main.162f152b.chunk.css','static/js/main.542e1f63.chunk.js','static/js/2.580e3f16.chunk.js','manifest.webmanifest']
               ];
               cache.addAll(urlsToCache);
-            })
         })
     );
   }
