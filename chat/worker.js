@@ -37,9 +37,9 @@ self.addEventListener('install', function(event) {
 // Here we intercept request and serve up the matching files
 self.addEventListener('fetch', function(event) {
   if (doCache) {
-    console.log(event.request);
     event.respondWith(
       caches.match(event.request).then(function(response) {
+        console.log(event.request,response);
         return response || fetch(event.request);
       })
     );
