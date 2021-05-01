@@ -29,6 +29,7 @@ self.addEventListener('install', function(event) {
               response.json();
             })
             .then(assets => {
+              console.log(assets,"file");
               // We will cache initial page and the main.js
               // We could also cache assets like CSS and images
               const urlsToCache = [
