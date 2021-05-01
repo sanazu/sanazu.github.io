@@ -24,13 +24,11 @@ self.addEventListener('install', function(event) {
     event.waitUntil(
       caches.open(CACHE_NAME)
         .then(function(cache) {
-               fetch('asset-manifest.json')
-            .then(response => {
-              response.json();
-            })
-            .then(assets => {
-              cache.addAll(assets.files);
-            })
+          const urlsToCache = [
+                'index.html', '/', 'static/js/2.580e3f16.chunk.js.LICENSE.txt','static/js/runtime-main.7a6efe9b.js',
+                'logo.png','static/css/main.162f152b.chunk.css','static/js/main.542e1f63.chunk.js','static/js/2.580e3f16.chunk.js','manifest.webmanifest'
+              ];
+          cache.addAll(urlsToCache);
         })
     );
   }
