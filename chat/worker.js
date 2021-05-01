@@ -33,7 +33,7 @@ self.addEventListener('install', function(event) {
               // We will cache initial page and the main.js
               // We could also cache assets like CSS and images
               const urlsToCache = [
-                '/',
+                '/index.html',
                 assets['logo.png','static/css/main.162f152b.chunk.css','static/js/main.542e1f63.chunk.js','static/js/2.580e3f16.chunk.js','manifest.webmanifest']
               ];
               cache.addAll(urlsToCache);
