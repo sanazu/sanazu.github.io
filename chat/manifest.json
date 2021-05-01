@@ -13,7 +13,7 @@
       "sizes": "24x24"
     }
   ],
-  "start_url": "/",
+  "start_url": "/chat",
   "display": "standalone",
   "theme_color": "#ededed",
   "background_color": "#ffffff"
