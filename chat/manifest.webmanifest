@@ -1,0 +1,20 @@
+{
+  "short_name": "WebMessngr",
+  "name": "Web Messenger",
+  "icons": [
+    {
+      "src": "logo.png",
+      "type": "image/png",
+      "sizes": "194x194"
+    },
+    {
+      "src": "icon.png",
+      "type": "image/png",
+      "sizes": "24x24"
+    }
+  ],
+  "start_url": "/chat/",
+  "display": "standalone",
+  "theme_color": "#1976d2",
+  "background_color": "#ffffff"
+}
