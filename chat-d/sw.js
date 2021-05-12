@@ -22,6 +22,7 @@ self.addEventListener("install", async (event) => {
         "asset-manifest.json"
       ).then((data) => data.json());
       let urlsToCache = Object.values(files).map((a) => a.substr(1));
+      console.log(urlsToCache);
       return cache.addAll(urlsToCache);
     })
   );
