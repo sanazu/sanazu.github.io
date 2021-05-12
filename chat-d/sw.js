@@ -1,12 +1,12 @@
 const CACHE_NAME = "version-1";
-
+let offlineMode = false;
 const self = this;
 
 (async () => {
-  const { files, offlineMode } = await fetch("asset-manifest.json").then(
-    (data) => data.json()
-  );
-  let urlsToCache = Object.values(files).map((a) => a.substr(1));
+//   const { files, offlineMode } = await fetch("asset-manifest.json").then(
+//     (data) => data.json()
+//   );
+//   let urlsToCache = Object.values(files).map((a) => a.substr(1));
   // load SW
 
   if ("serviceWorker" in navigator) {
@@ -23,7 +23,10 @@ const self = this;
     event.waitUntil(
       caches.open(CACHE_NAME).then((cache) => {
         console.log("Opened cache");
-
+        const { files, offlineMode, startUrl } = await fetch("asset-manifest.json").then(
+            (data) => data.json()
+          );
+        let urlsToCache = Object.values(files).map((a) => a.substr(1));
         return cache.addAll(urlsToCache);
       })
     );
