@@ -19,7 +19,7 @@
       "sizes": "512x512"
     }
   ],
-  "start_url": ".",
+  "start_url": "/chat-d/",
   "display": "standalone",
   "theme_color": "#673ab7",
   "background_color": "#ffffff"
