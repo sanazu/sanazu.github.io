@@ -21,7 +21,7 @@ const self = this;
   // Install SW
   self.addEventListener("install", async (event) => {
     event.waitUntil(
-      caches.open(CACHE_NAME).then((cache) => {
+      caches.open(CACHE_NAME).then(async (cache) => {
         console.log("Opened cache");
         const { files, offlineMode, startUrl } = await fetch("asset-manifest.json").then(
             (data) => data.json()
