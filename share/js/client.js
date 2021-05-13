@@ -190,7 +190,7 @@ async function onLogin(data) {
   await new ShareJS({
     localId: name,
     encoded: true,
-    channels: 4,
+    channels: 20,
     customFileId: true,
     fileSystem: true,
     // maxParts: 1000,
