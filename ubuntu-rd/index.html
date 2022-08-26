@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <link href="main.css" media="screen" rel="stylesheet" />
+    <link href="cell-phone.png" type="image/png" rel="icon" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <script src="jsQR.js"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
+      crossorigin="anonymous"
+    ></script>
+    <script>
+      "serviceWorker" in navigator
+        ? window.addEventListener("load", function () {
+            navigator.serviceWorker
+              .register("sw.js")
+              .then(
+                function (o) {
+                  console.log("Worker registration successful", o.scope);
+                },
+                function (o) {
+                  console.log("Worker registration failed", o);
+                }
+              )
+              .catch(function (o) {
+                console.log(o);
+              });
+          })
+        : console.log("Service Worker is not supported by browser.");
+    </script>
+    <script defer>
+      window.addEventListener("DOMContentLoaded", () => {
+        // const url = "http://192.168.0.169:36107/#Xjc5QP50ir8=";
+        // location.href = "ctrl.html" + "?url=" + btoa(url);
+        const video = document.createElement("video");
+        // Use facingMode: environment to attemt to get the front camera on phones
+        navigator.mediaDevices
+          .getUserMedia({
+            video: {
+              facingMode: "environment",
+            },
+          })
+          .then(function (stream) {
+            localStream = stream;
+            video.srcObject = stream;
+            video.setAttribute("playsinline", true); // required to tell iOS safari we don't want fullscreen
+            video.play();
+          });
+
+        requestAnimationFrame(tick);
+
+        function tick() {
+          var canvasElement = document.getElementById("canvas");
+          var canvas = canvasElement.getContext("2d");
+
+          if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            canvasElement.hidden = false;
+
+            canvasElement.height = 480; //video.videoHeight;
+            canvasElement.width = 640; //video.videoWidth;
+            canvas.drawImage(
+              video,
+              0,
+              0,
+              canvasElement.width,
+              canvasElement.height
+            );
+            var imageData = canvas.getImageData(
+              0,
+              0,
+              canvasElement.width,
+              canvasElement.height
+            );
+            var code = jsQR(imageData.data, imageData.width, imageData.height, {
+              inversionAttempts: "dontInvert",
+            });
+            if (code && code.data) {
+              alert(code.data);
+              alert("?url=" + btoa(code.data));
+              location.href = "ctrl.html" + "?url=" + btoa(code.data);
+            }
+          }
+
+          requestAnimationFrame(tick);
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <canvas id="canvas" style="height: 100vh; width: 100vw"></canvas>
+  </body>
+</html>

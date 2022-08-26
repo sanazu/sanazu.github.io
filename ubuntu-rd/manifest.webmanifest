@@ -1,0 +1,15 @@
+{
+  "short_name": "Urd",
+  "name": "Ubuntu-Rd",
+  "icons": [
+    {
+      "src": "cell-phone.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/ubuntu-rd/",
+  "display": "standalone",
+  "theme_color": "#1976d2",
+  "background_color": "#ffffff"
+}
